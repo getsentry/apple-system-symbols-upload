@@ -10,8 +10,8 @@ Each script checks on the bucket if the bundle already exists before extracting 
 
 Install `gsutil` and configure access to the bucket.
 ```sh
-        brew install --cask google-cloud-sdk
-        echo "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/bin" >> $GITHUB_PATH
+brew install --cask google-cloud-sdk
+echo "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/bin" >> $GITHUB_PATH
 ```
 You need access to `gs://sentryio-system-symbols-0`. The key is in the OSS vault in 1Password.
 ```sh
