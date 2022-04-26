@@ -44,6 +44,7 @@ class IPSW:
     architecture: str
     prefix: str
 
+    @property
     def bundle_id(self) -> str:
         return f"{self.os_version}_{self.build_number}_{self.architecture}"
 
