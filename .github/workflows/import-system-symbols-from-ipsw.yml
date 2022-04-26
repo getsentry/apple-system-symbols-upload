@@ -14,7 +14,7 @@ jobs:
     - name: Import system symbols for tvOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets. }}
+        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: tvos
         os_version: latest
   import-ios-system-symbols-from-ipsw:
