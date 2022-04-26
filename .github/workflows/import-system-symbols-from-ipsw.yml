@@ -14,7 +14,7 @@ jobs:
     - name: Import system symbols for tvOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.IOS_SYMBOL_IPSW_SERVICE_KEY }}
+        gcp_service_key: ${{ secrets. }}
         os_name: tvos
         os_version: latest
   import-ios-system-symbols-from-ipsw:
@@ -24,7 +24,7 @@ jobs:
     - name: Import system symbols for iOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.IOS_SYMBOL_IPSW_SERVICE_KEY }}
+        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: ios
         os_version: latest
   import-macos-system-symbols-from-ipsw:
@@ -34,7 +34,7 @@ jobs:
     - name: Import system symbols for macOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.IOS_SYMBOL_IPSW_SERVICE_KEY }}
+        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: macos
         os_version: latest
   import-watchos-system-symbols-from-ipsw:
@@ -44,6 +44,6 @@ jobs:
     - name: Import system symbols for watchOS
       uses: ./.github/actions/import-system-symbols-ipsw
       with:
-        gcp_service_key: ${{ secrets.IOS_SYMBOL_IPSW_SERVICE_KEY }}
+        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: watchos
         os_version: latest

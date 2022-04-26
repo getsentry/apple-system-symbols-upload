@@ -20,7 +20,7 @@ run:
     - name: "Set up GCP access"
       shell: bash
       env:
-        GCP_SERVICE_KEY : ${{ inputs.gcp_service_key }}
+        GCP_SERVICE_KEY: ${{ inputs.gcp_service_key }}
       run: |
         set -eou pipefail
         mkdir -p ~/.gcp
