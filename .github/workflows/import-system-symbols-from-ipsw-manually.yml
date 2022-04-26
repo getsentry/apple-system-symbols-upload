@@ -1,4 +1,4 @@
-name: Import system symbols from IPSW on schedule
+name: Import system symbols from IPSW manually
 
 on:
   workflow_dispatch:

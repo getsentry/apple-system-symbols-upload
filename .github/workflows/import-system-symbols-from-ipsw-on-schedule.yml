@@ -1,4 +1,4 @@
-name: Import system symbols from IPSW
+name: Import system symbols from IPSW on schedule
 
 on:
   schedule:
