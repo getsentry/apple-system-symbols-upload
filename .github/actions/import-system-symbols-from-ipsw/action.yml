@@ -9,10 +9,9 @@ inputs:
 
 run:
   steps:
-    - name: Setup Python
-      uses: actions/setup-python@v2
+    - uses: actions/setup-python@v3
       with:
-        python-version: '3.8'
+        python-version: '3.x'
     - name: "Install Google Cloud SDK"
       shell: bash
       run: |
@@ -30,7 +29,7 @@ run:
         gcloud auth activate-service-account --key-file="$key_path"
     - name: "Install dependencies"
       shell: bash
-      run: brew install p7zip git rust keith/formulae/dyld-shared-cache-extractor
+      run: brew install p7zip keith/formulae/dyld-shared-cache-extractor
     - name: "Install symsorter"
       shell: bash
       run: |
@@ -44,6 +43,6 @@ run:
       shell: bash
       run: python3 -m pip install --user -r requirements.txt
     - name: Select Xcode version
-      run: sudo xcode-select -s /Applications/Xcode_13.0.app/Contents/Developer
+      run: sudo xcode-select -s /Applications/Xcode_13.3.app/Contents/Developer
     - name: Import symbols
       run: python3 import_system_symbols_from_ipsw.py --os_name ${{ inputs.os_name }} --os_version ${{ inputs.os_version }}
