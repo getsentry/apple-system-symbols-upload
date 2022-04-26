@@ -221,7 +221,7 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
             architecture=device.architecture,
         )
         if has_symbols_in_cloud_storage(ipsw):
-            logging.info("We already have symbols for {ipsw.bundle_id}")
+            logging.info(f"We already have symbols for {ipsw.bundle_id}")
             continue
 
         build_key = f"{os_name}-{latest_os_version}-{latest_build_number}-{device.architecture}"
@@ -259,6 +259,7 @@ def has_symbols_in_cloud_storage(ipsw: IPSW) -> bool:
     elif "No URLs matched" in result.stdout:
         return False
     # Fallback to raising an exception for other errors.
+    print(result.stdout)
     result.check_returncode()
     return False
 
