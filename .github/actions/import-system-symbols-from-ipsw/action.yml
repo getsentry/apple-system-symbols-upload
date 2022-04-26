@@ -7,7 +7,7 @@ inputs:
   os_version:
     default: 'latest'
 
-run:
+runs:
   using: composite
   steps:
     - uses: actions/setup-python@v3
