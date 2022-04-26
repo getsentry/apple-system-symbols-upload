@@ -44,7 +44,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for watchOS
-      uses: ./.github/actions/import-system-symbols-ipsw
+      uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: watchos

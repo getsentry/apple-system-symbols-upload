@@ -1,0 +1,19 @@
+name: Import system symbols from simulators on schedule
+
+on:
+  schedule:
+    - cron:  '0 4 * * *' # Check for new IPSWs every 4 hours
+
+concurrency:
+  group: import-system-symbols-from-simulators-on-schedule
+  cancel-in-progress: true
+
+jobs:
+  import-system-symbols-from-simulators:
+    runs-on: 'macos-12'
+    steps:
+    - uses: actions/checkout@v2
+    - name: Import system symbols from simulators
+      uses: ./.github/actions/import-system-symbols-from-simulators
+      with:
+        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}

@@ -1,11 +1,7 @@
-name: import-system-symbols-from-ipsw
+name: import-system-symbols-from-simulators
 inputs:
   gcp_service_key:
     required: true
-  os_name:
-    required: true
-  os_version:
-    default: 'latest'
 
 runs:
   using: composite
@@ -15,4 +11,4 @@ runs:
         gcp_service_key: ${{ inputs.gcp_service_key }}
     - name: Import symbols
       shell: bash
-      run: python3 import_system_symbols_from_ipsw.py --os_name ${{ inputs.os_name }} --os_version ${{ inputs.os_version }}
+      run: python3 import_system_symbols_from_simulators.py

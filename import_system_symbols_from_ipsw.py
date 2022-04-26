@@ -44,11 +44,11 @@ DEVICES_TO_CHECK: Dict[str, List[Device]] = {
 
 @dataclass
 class IPSW:
-    os_version: str
-    build_number: str
-    url: ParseResult
     architecture: str
-    prefix: str
+    build_number: str
+    os_name: str
+    os_version: str
+    url: ParseResult
 
     @property
     def bundle_id(self) -> str:
@@ -214,10 +214,10 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
             os_version=latest_os_version,
             build_number=latest_build_number,
             url=urlparse(ipsw_info["url"]),
-            prefix=os_name,
+            os_name=os_name,
             architecture=device.architecture,
         )
-        if has_symbols_in_cloud_storage(ipsw):
+        if has_symbols_in_cloud_storage(ipsw.os_name, ipsw.bundle_id):
             logging.info(f"We already have symbols for {ipsw.bundle_id}")
             continue
 
@@ -243,8 +243,8 @@ def get_latest_version_ipsw(ipsws: List[IPSW]) -> Optional[IPSW]:
     return latest_version_ipsw
 
 
-def has_symbols_in_cloud_storage(ipsw: IPSW) -> bool:
-    storage_path = f"gs://sentryio-system-symbols-0/{ipsw.prefix}/bundles/{ipsw.bundle_id}"
+def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
+    storage_path = f"gs://sentryio-system-symbols-0/{prefix}/bundles/{bundle_id}"
     result = subprocess.run(
         ["gsutil", "stat", storage_path],
         encoding="utf-8",
