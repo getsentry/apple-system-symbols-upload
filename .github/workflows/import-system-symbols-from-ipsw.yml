@@ -10,6 +10,7 @@ jobs:
   import-tvos-system-symbols-from-ipsw:
     runs-on: 'macos-11'
     steps:
+    - uses: actions/checkout@v2
     - name: Import system symbols for tvOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
@@ -19,6 +20,7 @@ jobs:
   import-ios-system-symbols-from-ipsw:
     runs-on: 'macos-11'
     steps:
+    - uses: actions/checkout@v2
     - name: Import system symbols for iOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
@@ -28,6 +30,7 @@ jobs:
   import-macos-system-symbols-from-ipsw:
     runs-on: 'macos-11'
     steps:
+    - uses: actions/checkout@v2
     - name: Import system symbols for macOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
@@ -37,6 +40,7 @@ jobs:
   import-watchos-system-symbols-from-ipsw:
     runs-on: 'macos-11'
     steps:
+    - uses: actions/checkout@v2
     - name: Import system symbols for watchOS
       uses: ./.github/actions/import-system-symbols-ipsw
       with:
