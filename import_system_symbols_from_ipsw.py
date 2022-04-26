@@ -23,15 +23,21 @@ class Device:
 
 DEVICES_TO_CHECK: Dict[str, List[Device]] = {
     "ios": [
-        # Device(identifier='iPhone14,2', name='iPhone 13 Pro', architecture='arm64e'),
-        # Device(identifier='iPhone8,1', name='iPhone 6S', architecture='arm64'),
-        # Device(identifier='iPad12,1', name='iPad 9', architecture='arm64e'),
-        # Device(identifier='iPad5,4', name='iPad Air 2', architecture='arm64'),
+        Device(identifier="iPhone14,2", name="iPhone 13 Pro", architecture="arm64e"),
+        Device(identifier="iPhone8,1", name="iPhone 6S", architecture="arm64"),
+        Device(identifier="iPad12,1", name="iPad 9", architecture="arm64e"),
+        Device(identifier="iPad5,4", name="iPad Air 2", architecture="arm64"),
     ],
     "tvos": [
         Device(identifier="AppleTV5,3", name="AppleTV 4 (2015)", architecture="arm64"),
     ],
-    "macos": [],
+    "macos": [
+        Device(
+            identifier="MacBookPro18,3",
+            name="MacBook Pro (M1 Pro, 14-inch, 2021)",
+            architecture="arm64e",
+        ),
+    ],
     "watchos": [],
 }
 
