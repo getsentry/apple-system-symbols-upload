@@ -1,0 +1,31 @@
+name: Import system symbols from IPSW on schedule
+
+on:
+  workflow_dispatch:
+    inputs:
+      os_name:
+        description: 'OS name to upload system symbols for'
+        required: true
+        default: 'latest'
+        type: choice
+        options:
+          - ios
+          - macos
+          - tvos
+          - watchos
+      os_version:
+        description: 'OS version to upload system symbols for'
+        required: true
+        type: string
+
+jobs:
+  import-tvos-system-symbols-from-ipsw:
+    runs-on: 'macos-12'
+    steps:
+    - uses: actions/checkout@v2
+    - name: Import system symbols for ${{ github.event.inputs.os_name }}
+      uses: .github/actions/import-system-symbols-from-ipsw
+      with:
+        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
+        os_name: ${{ github.event.inputs.os_name }}
+        os_version: ${{ github.event.inputs.os_version }}

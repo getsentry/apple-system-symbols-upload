@@ -1,9 +1,11 @@
 name: Import system symbols from IPSW
 
-on: workflow_dispatch
+on:
+  schedule:
+    - cron:  '0 */4 * * *' # Check for new IPSWs every 4 hours
 
 concurrency:
-  group: import-system-symbols-from-ipsw
+  group: import-system-symbols-from-ipsw-on-schedule
   cancel-in-progress: true
 
 jobs:
