@@ -1,13 +1,14 @@
 name: import-system-symbols-from-ipsw
 inputs:
   gcp_service_key:
-    default: ''
+    required: true
   os_name:
-    default: ''
+    required: true
   os_version:
     default: 'latest'
 
 run:
+  using: composite
   steps:
     - uses: actions/setup-python@v3
       with:
