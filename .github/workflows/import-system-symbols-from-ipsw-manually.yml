@@ -6,7 +6,6 @@ on:
       os_name:
         description: 'OS name to upload system symbols for'
         required: true
-        default: 'latest'
         type: choice
         options:
           - ios
@@ -17,9 +16,10 @@ on:
         description: 'OS version to upload system symbols for'
         required: true
         type: string
+        default: 'latest'
 
 jobs:
-  import-tvos-system-symbols-from-ipsw:
+  import-system-symbols-from-ipsw:
     runs-on: 'macos-12'
     steps:
     - uses: actions/checkout@v2
