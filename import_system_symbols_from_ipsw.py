@@ -130,45 +130,36 @@ def extract_symbols_from_one_archive(
                 cache_path = os.path.join(shared_cache_dir, filename)
                 logging.info(f"Extracting {cache_path} to {output_path}")
                 subprocess.check_call(["dyld-shared-cache-extractor", cache_path, output_path])
-                subprocess.check_call(
-                    [
-                        "./symsorter",
-                        "-zz",
-                        "--ignore-errors",
-                        "-o",
-                        symcache_output_path,
-                        "--prefix",
-                        prefix,
-                        "--bundle-id",
-                        bundle_id,
-                        output_path,
-                    ]
-                )
+                symsorter(symcache_output_path, prefix, bundle_id, output_path)
 
         other_dylib_paths = [
             os.path.join(volume_path, "usr", "lib"),
             os.path.join(volume_path, "System", "Library", "AccessibilityBundles"),
         ]
         for dylib_path in other_dylib_paths:
-            subprocess.check_call(
-                [
-                    "./symsorter",
-                    "-zz",
-                    "--ignore-errors",
-                    "-o",
-                    symcache_output_path,
-                    "--prefix",
-                    prefix,
-                    "--bundle-id",
-                    bundle_id,
-                    dylib_path,
-                ]
-            )
+            symsorter(symcache_output_path, prefix, bundle_id, dylib_path)
     finally:
         logging.info(f"Unmounting {restore_image_path}")
         subprocess.check_call(
             ["hdiutil", "detach", volume_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
+
+
+def symsorter(output_path: str, prefix: str, bundle_id: str, input_path: str) -> None:
+    subprocess.check_call(
+        [
+            "./symsorter",
+            "-zz",
+            "--ignore-errors",
+            "-o",
+            output_path,
+            "--prefix",
+            prefix,
+            "--bundle-id",
+            bundle_id,
+            input_path,
+        ]
+    )
 
 
 def extract_ipsw_archive(archive_path: str, extract_dir: str) -> None:
