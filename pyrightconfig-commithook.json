@@ -1,0 +1,10 @@
+{
+  "include": [
+    "*.py"
+  ],
+
+  "typeCheckingMode": "off",
+  "reportMissingImports": "none",
+  "reportUndefinedVariable": "none",
+  "reportUnboundVariable": "error"
+}

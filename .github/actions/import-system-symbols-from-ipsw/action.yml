@@ -1,0 +1,50 @@
+name: import-system-symbols-from-ipsw
+inputs:
+  gcp_service_key:
+    default: ''
+  os_name:
+    default: ''
+  os_version:
+    default: 'latest'
+
+run:
+  steps:
+    - uses: actions/checkout@v2
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+    - name: "Install Google Cloud SDK"
+      shell: bash
+      run: |
+        brew install --cask google-cloud-sdk
+        echo "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/bin" >> $GITHUB_PATH
+    - name: "Set up GCP access"
+      shell: bash
+      env:
+        GCP_SERVICE_KEY : ${{ inputs.gcp_service_key }}
+      run: |
+        set -eou pipefail
+        mkdir -p ~/.gcp
+        key_path="$HOME/.gcp/key.json"
+        echo $GCP_SERVICE_KEY > "$key_path"
+        gcloud auth activate-service-account --key-file="$key_path"
+    - name: "Install dependencies"
+      shell: bash
+      run: brew install p7zip git rust keith/formulae/dyld-shared-cache-extractor
+    - name: "Install symsorter"
+      shell: bash
+      run: |
+        set -eou pipefail
+        git clone https://github.com/getsentry/symbolicator.git
+        pushd symbolicator/crates/symsorter
+        cargo build --release
+        cp ./target/release/symsorter ../../..
+        popd
+    - name: "Install Python dependencies"
+      shell: bash
+      run: python3 -m pip install --user -r requirements.txt
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_13.0.app/Contents/Developer
+    - name: Import symbols
+      run: python3 import_system_symbols_from_ipsw.py --os_name ${{ inputs.os_name }} --os_version ${{ inputs.os_version }}

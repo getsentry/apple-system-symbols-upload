@@ -1,0 +1,22 @@
+# macOS artifacts
+.DS_Store
+
+# python
+.tox/
+.venv/
+**/*.pyc
+**/*.egg-info
+pip-wheel-metadata/
+poetry.lock
+
+# mypy
+.mypy_cache/
+
+*.so
+*.o
+*_cffi.c
+.eggs/
+*.egg
+
+# https://github.com/justinmayer/virtualfish
+.venv
