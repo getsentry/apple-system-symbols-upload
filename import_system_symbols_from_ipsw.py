@@ -82,7 +82,7 @@ def main():
                 download_ipsw_archive(ipsw.url.geturl(), local_path)
                 with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_extract_dir_") as extract_dir:
                     extract_symbols_from_one_archive(
-                        local_path, extract_dir, symcache_output, ipsw.prefix, ipsw.architecture
+                        local_path, extract_dir, symcache_output, ipsw.os_name, ipsw.architecture
                     )
         upload_to_gcs(symcache_output)
 
