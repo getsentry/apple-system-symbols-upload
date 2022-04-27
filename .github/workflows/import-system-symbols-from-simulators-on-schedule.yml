@@ -1,4 +1,4 @@
-name: Import system symbols from simulators on schedule
+name: Scheduled Simulator Import
 
 on:
   schedule:
