@@ -31,11 +31,8 @@ runs:
       shell: bash
       run: |
         set -eou pipefail
-        git clone https://github.com/getsentry/symbolicator.git
-        pushd symbolicator/crates/symsorter
-        cargo build --release
-        popd
-        cp ./symbolicator/target/release/symsorter .
+        curl -L https://github.com/getsentry/symbolicator/releases/download/0.4.2/symsorter-Darwin-universal > symsorter
+        chmod +x symsorter
     - name: "Install Python dependencies"
       shell: bash
       run: python3 -m pip install --user -r requirements.txt
