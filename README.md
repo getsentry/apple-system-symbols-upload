@@ -1,6 +1,6 @@
 # Apple system symbols upload scripts
 
-These scripts are meant to extract and upload to `gs://sentryio-system-symbols-0` Apple system symbols for `iOS`, `tvOS` and `macOS`. Simulators are also supported and simulators listed on https://github.com/actions/virtual-environments/blob/main/images/macos/macos-12-Readme.md#installed-simulators are supported.
+These scripts are meant to extract and upload to `gs://sentryio-system-symbols-0` Apple system symbols for `iOS`, `tvOS` and `macOS`. Simulators are also supported and simulators listed on https://github.com/actions/virtual-environments/blob/main/images/macos/macos-12-Readme.md#installed-simulators are supported. The repositories of IPSW archives we use might not be completely up-to-date, and so there could still be missing symbols in the future. At the moment, we have to upload symbols for AppleTV 4K (2nd gen) manually. We keep track of the manual uploads in [Notion](https://www.notion.so/sentry/HOWTO-Upload-Symbols-to-GCS-fe66167e4d124a38a79ccfaf531b0e9e).
 
 A GitHub action will run every 4 hours to check for new versions of supported OSes.
 
