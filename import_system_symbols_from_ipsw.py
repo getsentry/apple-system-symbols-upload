@@ -121,9 +121,21 @@ def extract_symbols_from_one_archive(
 
     try:
         bundle_id = f"{os_version}_{build_number}_{architecture}"
-        shared_cache_dir = os.path.join(
-            volume_path, "System", "Library", "Caches", "com.apple.dyld"
-        )
+        if prefix == "macos":
+            shared_cache_dir = os.path.join(
+                volume_path,
+                "System",
+                "Library",
+                "dyld",
+            )
+        else:
+            shared_cache_dir = os.path.join(
+                volume_path,
+                "System",
+                "Library",
+                "Caches",
+                "com.apple.dyld",
+            )
         for filename in os.listdir(shared_cache_dir):
             # iOS 15.0+ firmwares have multiple dyld_shared_cache files for the same architecture,
             # e.g. dyld_shared_cache_arm64e.1, dyld_shared_cache_arm64e.2, etc.
