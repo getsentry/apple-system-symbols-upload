@@ -75,17 +75,17 @@ def find_simulator_runtimes(caches_path: str) -> List[SimulatorRuntime]:
                 if not filename.startswith(_dyld_shared_cache_prefix):
                     continue
                 arch = filename.split(_dyld_shared_cache_prefix)[1]
-                break
-            runtimes.append(
-                SimulatorRuntime(
-                    arch=arch,
-                    build_number=build_number,
-                    macos_version=macos_version,
-                    os_name=os_name,
-                    os_version=os_version,
-                    path=path,
+                runtimes.append(
+                    SimulatorRuntime(
+                        arch=arch,
+                        build_number=build_number,
+                        macos_version=macos_version,
+                        os_name=os_name,
+                        os_version=os_version,
+                        path=path,
+                    )
                 )
-            )
+                break
     return runtimes
 
 
