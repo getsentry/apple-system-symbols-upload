@@ -34,20 +34,18 @@ def main():
     caches_path = os.path.expanduser("~/Library/Developer/CoreSimulator/Caches/dyld")
     if not os.path.isdir(caches_path):
         sys.exit(f"{caches_path} does not exist")
+
     with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
         for runtime in find_simulator_runtimes(caches_path):
-            map_paths: List[str] = []
             for filename in os.listdir(runtime.path):
                 if not filename.startswith(_dyld_shared_cache_prefix):
                     continue
-                full_path = os.path.join(runtime.path, filename)
                 if os.path.splitext(filename)[1] == ".map":
-                    map_paths.append(full_path)
                     continue
                 runtime.arch = filename.split(_dyld_shared_cache_prefix)[1]
                 if has_symbols_in_cloud_storage(runtime.os_name, runtime.bundle_id):
                     logging.info(
-                        f"Already have symbols for macOS {runtime.macos_version}, {runtime.os_name} {runtime.os_version} {runtime.arch}, skipping"
+                        f"Already have symbols for {runtime.os_name} {runtime.os_version} {runtime.arch} from macOS {runtime.macos_version}, skipping"
                     )
                     continue
                 logging.info(
