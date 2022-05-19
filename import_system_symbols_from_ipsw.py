@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.parse import ParseResult, urlparse
 
@@ -202,6 +203,9 @@ def read_restore_plist(plist_path: str):
 
 
 def upload_to_gcs(symcache_dir: str):
+    if not any(Path(symcache_dir).iterdir()):
+        logging.info(f"Directory {symcache_dir} is empty, nothing to do.")
+        return
     logging.info("Uploading symcache artifacts to production symbols bucket")
     subprocess.check_call(
         ["gsutil", "-m", "cp", "-rn", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
