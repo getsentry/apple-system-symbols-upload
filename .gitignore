@@ -8,6 +8,7 @@
 **/*.egg-info
 pip-wheel-metadata/
 poetry.lock
+.artifacts/
 
 # mypy
 .mypy_cache/
