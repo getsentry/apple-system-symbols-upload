@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 from urllib.parse import ParseResult, urlparse
 
 import requests
+import sentry_sdk
 
 
 @dataclass
@@ -41,6 +42,12 @@ DEVICES_TO_CHECK: Dict[str, List[Device]] = {
     ],
     "watchos": [],
 }
+
+
+sentry_sdk.init(
+    dsn="https://f86a0e29c86e49688d691e194c5bf9eb@o1.ingest.sentry.io/6418660",
+    traces_sample_rate=1.0,
+)
 
 
 @dataclass
@@ -72,20 +79,33 @@ def main():
     if args.os_name is None:
         sys.exit("You need to specify an OS name to check for.")
 
-    ipsws = get_missing_ipsws(args.os_name, args.os_version)
-    if len(ipsws) == 0:
-        return
+    with sentry_sdk.start_transaction(op="task", name="import symbols from IPSW archive"):
+        with sentry_sdk.start_span(op="task", description="Check for new versions"):
+            ipsws = get_missing_ipsws(args.os_name, args.os_version)
+            if len(ipsws) == 0:
+                return
 
-    with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
-        with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
-            for ipsw in ipsws:
-                local_path = os.path.join(ipsw_dir, os.path.basename(ipsw.url.path))
-                download_ipsw_archive(ipsw.url.geturl(), local_path)
-                with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_extract_dir_") as extract_dir:
-                    extract_symbols_from_one_archive(
-                        local_path, extract_dir, symcache_output, ipsw.os_name, ipsw.architecture
-                    )
-        upload_to_gcs(symcache_output)
+        with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
+            with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
+                for ipsw in ipsws:
+                    with sentry_sdk.start_span(op="task", description="Download new version"):
+                        local_path = os.path.join(ipsw_dir, os.path.basename(ipsw.url.path))
+                        download_ipsw_archive(ipsw.url.geturl(), local_path)
+                    with sentry_sdk.start_span(
+                        op="task", description="Extract symbols from archive"
+                    ):
+                        with tempfile.TemporaryDirectory(
+                            prefix="_sentry_ipsw_extract_dir_"
+                        ) as extract_dir:
+                            extract_symbols_from_one_archive(
+                                local_path,
+                                extract_dir,
+                                symcache_output,
+                                ipsw.os_name,
+                                ipsw.architecture,
+                            )
+            with sentry_sdk.start_span(op="task", description="Upload symbols to GCS bucket"):
+                upload_to_gcs(symcache_output)
 
 
 def download_ipsw_archive(url: str, filepath: str) -> None:
@@ -148,15 +168,24 @@ def extract_symbols_from_one_archive(
             with tempfile.TemporaryDirectory(prefix="_sentry_dylib_cache_output") as output_path:
                 cache_path = os.path.join(shared_cache_dir, filename)
                 logging.info(f"Extracting {cache_path} to {output_path}")
-                subprocess.check_call(["dyld-shared-cache-extractor", cache_path, output_path])
-                symsorter(symcache_output_path, prefix, bundle_id, output_path)
+                with sentry_sdk.start_span(
+                    op="task", description="Run dyld-shared-cache-extractor"
+                ):
+                    subprocess.check_call(["dyld-shared-cache-extractor", cache_path, output_path])
+                with sentry_sdk.start_span(
+                    op="task", description="Run symsorter for shared cache directory"
+                ):
+                    symsorter(symcache_output_path, prefix, bundle_id, output_path)
 
         other_dylib_paths = [
             os.path.join(volume_path, "usr", "lib"),
             os.path.join(volume_path, "System", "Library", "AccessibilityBundles"),
         ]
         for dylib_path in other_dylib_paths:
-            symsorter(symcache_output_path, prefix, bundle_id, dylib_path)
+            with sentry_sdk.start_span(
+                op="task", description="Run symsorter for other dylib paths"
+            ):
+                symsorter(symcache_output_path, prefix, bundle_id, dylib_path)
     finally:
         logging.info(f"Unmounting {restore_image_path}")
         subprocess.check_call(
