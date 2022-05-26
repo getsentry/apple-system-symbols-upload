@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import argparse
 import logging
 import os
@@ -42,12 +40,6 @@ DEVICES_TO_CHECK: Dict[str, List[Device]] = {
     ],
     "watchos": [],
 }
-
-
-sentry_sdk.init(
-    dsn="https://f86a0e29c86e49688d691e194c5bf9eb@o1.ingest.sentry.io/6418660",
-    traces_sample_rate=1.0,
-)
 
 
 @dataclass
@@ -331,4 +323,8 @@ def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
 
 
 if __name__ == "__main__":
+    sentry_sdk.init(
+        dsn="https://f86a0e29c86e49688d691e194c5bf9eb@o1.ingest.sentry.io/6418660",
+        traces_sample_rate=1.0,
+    )
     main()
