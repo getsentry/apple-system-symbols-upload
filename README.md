@@ -6,6 +6,8 @@ A GitHub action will run every 4 hours to check for new versions of supported OS
 
 Each script checks on the bucket if the bundle already exists before extracting and uploading symbols. See the `bundles` directory inside each OS directory on the bucket.
 
+This project is instrumented with Sentry and errors are sent to the `sentry` organization, project `apple-system-symbols-upload` (https://sentry.io/organizations/sentry/issues/?project=6418660&query=is%3Aunresolved).
+
 ## Set up environment
 
 Install `gsutil` and configure access to the bucket.

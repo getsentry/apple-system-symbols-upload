@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import argparse
 import logging
 import os
@@ -7,12 +5,13 @@ import plistlib
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from urllib.parse import ParseResult, urlparse
 
 import requests
+import sentry_sdk
 
 
 @dataclass
@@ -72,20 +71,46 @@ def main():
     if args.os_name is None:
         sys.exit("You need to specify an OS name to check for.")
 
-    ipsws = get_missing_ipsws(args.os_name, args.os_version)
-    if len(ipsws) == 0:
-        return
+    with sentry_sdk.start_transaction(
+        op="task", name="import symbols from IPSW archive"
+    ) as transaction:
+        with transaction.start_span(op="task", description="Check for new versions") as span:
+            ipsws = get_missing_ipsws(args.os_name, args.os_version)
+            if len(ipsws) == 0:
+                return
+            span.set_data("new_archives", ipsws)
 
-    with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
-        with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
-            for ipsw in ipsws:
-                local_path = os.path.join(ipsw_dir, os.path.basename(ipsw.url.path))
-                download_ipsw_archive(ipsw.url.geturl(), local_path)
-                with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_extract_dir_") as extract_dir:
-                    extract_symbols_from_one_archive(
-                        local_path, extract_dir, symcache_output, ipsw.os_name, ipsw.architecture
-                    )
-        upload_to_gcs(symcache_output)
+        with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
+            with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
+                for ipsw in ipsws:
+                    with transaction.start_span(
+                        op="task", description="Process IPSW archive"
+                    ) as ipsw_span:
+                        for k, v in asdict(ipsw).items():
+                            ipsw_span.set_data(k, v)
+
+                        with ipsw_span.start_child(
+                            op="task", description="Download new version"
+                        ) as span:
+                            local_path = os.path.join(ipsw_dir, os.path.basename(ipsw.url.path))
+                            url = ipsw.url.geturl()
+                            span.set_data("url", url)
+                            download_ipsw_archive(url, local_path)
+                        with ipsw_span.start_child(
+                            op="task", description="Extract symbols from archive"
+                        ) as span:
+                            with tempfile.TemporaryDirectory(
+                                prefix="_sentry_ipsw_extract_dir_"
+                            ) as extract_dir:
+                                extract_symbols_from_one_archive(
+                                    local_path,
+                                    extract_dir,
+                                    symcache_output,
+                                    ipsw.os_name,
+                                    ipsw.architecture,
+                                )
+            with transaction.start_span(op="task", description="Upload symbols to GCS bucket"):
+                upload_to_gcs(symcache_output)
 
 
 def download_ipsw_archive(url: str, filepath: str) -> None:
@@ -103,7 +128,9 @@ def extract_symbols_from_one_archive(
     prefix: str,
     architecture: str,
 ) -> None:
-    extract_ipsw_archive(ipsw_archive_path, extract_dir)
+    span = sentry_sdk.Hub.current.scope.span
+    with span.start_child(op="task", description="Extract IPSW archive"):
+        extract_ipsw_archive(ipsw_archive_path, extract_dir)
     plist_path = os.path.join(extract_dir, "Restore.plist")
     (restore_images, os_version, build_number) = read_restore_plist(plist_path)
 
@@ -112,16 +139,18 @@ def extract_symbols_from_one_archive(
     restore_image_path = os.path.join(extract_dir, system_restore_image_filename)
 
     logging.info(f"Mounting {restore_image_path}")
-    volume_path = (
-        subprocess.check_output(
-            [f"hdiutil attach {restore_image_path} | grep /Volumes/ | cut -f 3"], shell=True
+    with span.start_child(op="task", description="Mount archive"):
+        volume_path = (
+            subprocess.check_output(
+                [f"hdiutil attach {restore_image_path} | grep /Volumes/ | cut -f 3"], shell=True
+            )
+            .decode("utf-8")
+            .strip()
         )
-        .decode("utf-8")
-        .strip()
-    )
 
     try:
         bundle_id = f"{os_version}_{build_number}_{architecture}"
+        span.set_data("bundle_id", bundle_id)
         if prefix == "macos":
             shared_cache_dir = os.path.join(
                 volume_path,
@@ -146,22 +175,41 @@ def extract_symbols_from_one_archive(
             if not filename.startswith("dyld_shared_cache") or os.path.splitext(filename)[1] != "":
                 continue
             with tempfile.TemporaryDirectory(prefix="_sentry_dylib_cache_output") as output_path:
-                cache_path = os.path.join(shared_cache_dir, filename)
-                logging.info(f"Extracting {cache_path} to {output_path}")
-                subprocess.check_call(["dyld-shared-cache-extractor", cache_path, output_path])
-                symsorter(symcache_output_path, prefix, bundle_id, output_path)
+                with span.start_child(
+                    op="task", description="Process shared cache file"
+                ) as shared_cache_span:
+                    shared_cache_span.set_data("shared_cache_file", filename)
+                    cache_path = os.path.join(shared_cache_dir, filename)
+                    logging.info(f"Extracting {cache_path} to {output_path}")
+                    with shared_cache_span.start_child(
+                        op="task", description="Run dyld-shared-cache-extractor"
+                    ):
+                        subprocess.check_call(
+                            ["dyld-shared-cache-extractor", cache_path, output_path]
+                        )
+                    with shared_cache_span.start_child(
+                        op="task", description="Run symsorter for shared cache directory"
+                    ):
+                        symsorter(symcache_output_path, prefix, bundle_id, output_path)
 
         other_dylib_paths = [
             os.path.join(volume_path, "usr", "lib"),
             os.path.join(volume_path, "System", "Library", "AccessibilityBundles"),
         ]
         for dylib_path in other_dylib_paths:
-            symsorter(symcache_output_path, prefix, bundle_id, dylib_path)
+            with span.start_span(
+                op="task", description="Run symsorter for other dylib paths"
+            ) as other_path_span:
+                other_path_span.set_data("dylib_path", dylib_path)
+                symsorter(symcache_output_path, prefix, bundle_id, dylib_path)
     finally:
         logging.info(f"Unmounting {restore_image_path}")
-        subprocess.check_call(
-            ["hdiutil", "detach", volume_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        with span.start_child(op="task", description="Unmount archive"):
+            subprocess.check_call(
+                ["hdiutil", "detach", volume_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
 
 def symsorter(output_path: str, prefix: str, bundle_id: str, input_path: str) -> None:
@@ -216,47 +264,44 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
     if os_name not in DEVICES_TO_CHECK:
         return []
 
+    span = sentry_sdk.Hub.current.scope.span
     build_to_ipsw: Dict[str, IPSW] = {}
     for device in DEVICES_TO_CHECK.get(os_name, []):
-        res = requests.get(f"https://api.ipsw.me/v2.1/{device.identifier}/{os_version}/info.json")
-        res.raise_for_status()
-        if len(res.json()) == 0:
-            continue
+        with span.start_child(op="http.client", description="Fetch latest versions") as device_span:
+            res = requests.get(
+                f"https://api.ipsw.me/v2.1/{device.identifier}/{os_version}/info.json"
+            )
+            res.raise_for_status()
+            if len(res.json()) == 0:
+                continue
 
-        ipsw_info = res.json()[0]
-        latest_os_version = ipsw_info["version"]
-        latest_build_number = ipsw_info["buildid"]
-        ipsw = IPSW(
-            os_version=latest_os_version,
-            build_number=latest_build_number,
-            url=urlparse(ipsw_info["url"]),
-            os_name=os_name,
-            architecture=device.architecture,
-        )
-        if has_symbols_in_cloud_storage(ipsw.os_name, ipsw.bundle_id):
-            logging.info(f"We already have symbols for {ipsw.bundle_id}")
-            continue
+            ipsw_info = res.json()[0]
+            latest_os_version = ipsw_info["version"]
+            latest_build_number = ipsw_info["buildid"]
+            ipsw = IPSW(
+                os_version=latest_os_version,
+                build_number=latest_build_number,
+                url=urlparse(ipsw_info["url"]),
+                os_name=os_name,
+                architecture=device.architecture,
+            )
+            device_span.set_data("latest_os_version", latest_os_version)
+            device_span.set_data("latest_build_nunber", latest_build_number)
 
-        build_key = f"{os_name}-{latest_os_version}-{latest_build_number}-{device.architecture}"
-        if build_to_ipsw.get(build_key):
-            continue
+            with device_span.start_child(
+                op="task", description="Check if version has symbols already"
+            ) as symbols_span:
+                if has_symbols_in_cloud_storage(ipsw.os_name, ipsw.bundle_id):
+                    symbols_span.set_data("has_symbols_in_cloud_storage", True)
+                    logging.info(f"We already have symbols for {ipsw.bundle_id}")
+                    continue
 
-        build_to_ipsw[build_key] = ipsw
+            build_key = f"{os_name}-{latest_os_version}-{latest_build_number}-{device.architecture}"
+            if build_to_ipsw.get(build_key):
+                continue
+
+            build_to_ipsw[build_key] = ipsw
     return list(build_to_ipsw.values())
-
-
-def get_latest_version_ipsw(ipsws: List[IPSW]) -> Optional[IPSW]:
-    """
-    Iterates the list of IPSWs and finds the one with the latest version via
-    semantic version comparison.
-    """
-    if len(ipsws) == 0:
-        return None
-    latest_version_ipsw = ipsws[0]
-    for ipsw in ipsws[1:]:
-        if ipsw.build_number > latest_version_ipsw.build_number:
-            latest_version_ipsw = ipsw
-    return latest_version_ipsw
 
 
 def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
@@ -278,4 +323,8 @@ def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
 
 
 if __name__ == "__main__":
+    sentry_sdk.init(
+        dsn="https://f86a0e29c86e49688d691e194c5bf9eb@o1.ingest.sentry.io/6418660",
+        traces_sample_rate=1.0,
+    )
     main()
