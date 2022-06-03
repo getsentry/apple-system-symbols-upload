@@ -74,7 +74,7 @@ def main():
     with sentry_sdk.start_transaction(
         op="task", name="import symbols from IPSW archive"
     ) as transaction:
-        with transaction.start_span(op="task", description="Check for new versions") as span:
+        with transaction.start_child(op="task", description="Check for new versions") as span:
             ipsws = get_missing_ipsws(args.os_name, args.os_version)
             if len(ipsws) == 0:
                 return
@@ -83,7 +83,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
             with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
                 for ipsw in ipsws:
-                    with transaction.start_span(
+                    with transaction.start_child(
                         op="task", description="Process IPSW archive"
                     ) as ipsw_span:
                         for k, v in asdict(ipsw).items():
@@ -109,7 +109,7 @@ def main():
                                     ipsw.os_name,
                                     ipsw.architecture,
                                 )
-            with transaction.start_span(op="task", description="Upload symbols to GCS bucket"):
+            with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
                 upload_to_gcs(symcache_output)
 
 

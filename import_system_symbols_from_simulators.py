@@ -40,7 +40,7 @@ def main():
     ) as transaction:
         with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
             for runtime in find_simulator_runtimes(caches_path):
-                with transaction.start_span(
+                with transaction.start_child(
                     op="task", description="Process runtime"
                 ) as runtime_span:
                     runtime_span.set_data("runtime", runtime)
@@ -68,7 +68,7 @@ def main():
                             )
                             with file_span.start_child(op="task", description="Extract symbols"):
                                 extract_system_symbols(runtime, output_dir)
-            with transaction.start_span(op="task", description="Upload results to GCS"):
+            with transaction.start_child(op="task", description="Upload results to GCS"):
                 upload_to_gcs(output_dir)
 
 
