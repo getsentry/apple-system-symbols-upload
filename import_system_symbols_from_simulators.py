@@ -36,7 +36,7 @@ def main():
         sys.exit(f"{caches_path} does not exist")
 
     with sentry_sdk.start_transaction(
-        op="task", name="import symbols from IPSW archive"
+        op="task", name="import symbols from simulators"
     ) as transaction:
         with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
             for runtime in find_simulator_runtimes(caches_path):
