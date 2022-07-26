@@ -197,7 +197,7 @@ def extract_symbols_from_one_archive(
             os.path.join(volume_path, "System", "Library", "AccessibilityBundles"),
         ]
         for dylib_path in other_dylib_paths:
-            with span.start_span(
+            with span.start_child(
                 op="task", description="Run symsorter for other dylib paths"
             ) as other_path_span:
                 other_path_span.set_data("dylib_path", dylib_path)
