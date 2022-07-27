@@ -12,6 +12,7 @@ from urllib.parse import ParseResult, urlparse
 
 import requests
 import sentry_sdk
+import sentry_sdk.profiler as profiler
 
 
 @dataclass
@@ -24,9 +25,6 @@ class Device:
 DEVICES_TO_CHECK: Dict[str, List[Device]] = {
     "ios": [
         Device(identifier="iPhone14,2", name="iPhone 13 Pro", architecture="arm64e"),
-        Device(identifier="iPhone8,1", name="iPhone 6S", architecture="arm64"),
-        Device(identifier="iPad12,1", name="iPad 9", architecture="arm64e"),
-        Device(identifier="iPad5,4", name="iPad Air 2", architecture="arm64"),
     ],
     "tvos": [
         Device(identifier="AppleTV5,3", name="AppleTV 4 (2015)", architecture="arm64"),
@@ -113,8 +111,6 @@ def import_symbols(os_name, os_version):
                                     ipsw.os_name,
                                     ipsw.architecture,
                                 )
-            with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
-                upload_to_gcs(symcache_output)
 
 
 def download_ipsw_archive(url: str, filepath: str) -> None:
@@ -254,16 +250,6 @@ def read_restore_plist(plist_path: str):
     return restore_images, os_version, build_number
 
 
-def upload_to_gcs(symcache_dir: str):
-    if not any(Path(symcache_dir).iterdir()):
-        logging.info(f"Directory {symcache_dir} is empty, nothing to do.")
-        return
-    logging.info("Uploading symcache artifacts to production symbols bucket")
-    subprocess.check_call(
-        ["gsutil", "-m", "cp", "-rn", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
-    )
-
-
 def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
     if os_name not in DEVICES_TO_CHECK:
         return []
@@ -292,14 +278,6 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
             device_span.set_data("latest_os_version", latest_os_version)
             device_span.set_data("latest_build_nunber", latest_build_number)
 
-            with device_span.start_child(
-                op="task", description="Check if version has symbols already"
-            ) as symbols_span:
-                if has_symbols_in_cloud_storage(ipsw.os_name, ipsw.bundle_id):
-                    symbols_span.set_data("has_symbols_in_cloud_storage", True)
-                    logging.info(f"We already have symbols for {ipsw.bundle_id}")
-                    continue
-
             build_key = f"{os_name}-{latest_os_version}-{latest_build_number}-{device.architecture}"
             if build_to_ipsw.get(build_key):
                 continue
@@ -308,27 +286,5 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
     return list(build_to_ipsw.values())
 
 
-def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
-    storage_path = f"gs://sentryio-system-symbols-0/{prefix}/bundles/{bundle_id}"
-    result = subprocess.run(
-        ["gsutil", "stat", storage_path],
-        encoding="utf-8",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    if result.returncode == 0:
-        return True
-    elif "No URLs matched" in result.stdout:
-        return False
-    # Fallback to raising an exception for other errors.
-    print(result.stdout)
-    result.check_returncode()
-    return False
-
-
 if __name__ == "__main__":
-    sentry_sdk.init(
-        dsn="https://f86a0e29c86e49688d691e194c5bf9eb@o1.ingest.sentry.io/6418660",
-        traces_sample_rate=1.0,
-    )
     main()
