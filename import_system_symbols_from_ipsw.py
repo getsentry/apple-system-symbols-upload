@@ -71,11 +71,15 @@ def main():
     if args.os_name is None:
         sys.exit("You need to specify an OS name to check for.")
 
+    import_symbols(args.os_name, args.os_version)
+
+
+def import_symbols(os_name, os_version):
     with sentry_sdk.start_transaction(
         op="task", name="import symbols from IPSW archive"
     ) as transaction:
         with transaction.start_child(op="task", description="Check for new versions") as span:
-            ipsws = get_missing_ipsws(args.os_name, args.os_version)
+            ipsws = get_missing_ipsws(os_name, os_version)
             if len(ipsws) == 0:
                 return
             span.set_data("new_archives", ipsws)
