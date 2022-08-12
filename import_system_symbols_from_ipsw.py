@@ -68,6 +68,10 @@ def main():
     )
     args = parser.parse_args()
 
+    with sentry_sdk.start_transaction(op="task", name="checking OTAs") as transaction:
+        get_otas(args.os_name)
+        sys.exit(1)
+
     if args.os_name is None:
         sys.exit("You need to specify an OS name to check for.")
 
@@ -258,6 +262,41 @@ def upload_to_gcs(symcache_dir: str):
     subprocess.check_call(
         ["gsutil", "-m", "cp", "-rn", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
     )
+
+
+def get_otas(os_name: str):
+    versions = {}
+
+    span = sentry_sdk.Hub.current.scope.span
+    for device in DEVICES_TO_CHECK.get(os_name, []):
+        with span.start_child(op="http.client", description="Fetch all versions"):
+            res = requests.get(f"https://api.ipsw.me/v4/device/{device.identifier}?type=ota")
+            res.raise_for_status()
+
+            for firmware in res.json()["firmwares"]:
+                # we don't care about beta releases
+                if firmware["releasetype"] == "Beta":
+                    continue
+                normal_version = regular_version_from_ota_version(firmware["version"])
+                versions[normal_version, firmware["buildid"]] = firmware
+
+        with span.start_child(op="http.client", description="Fetch all IPSWs"):
+            res = requests.get(f"https://api.ipsw.me/v4/device/{device.identifier}?type=ipsw")
+            res.raise_for_status()
+
+            for firmware in res.json()["firmwares"]:
+                normal_version = regular_version_from_ota_version(firmware["version"])
+                versions.pop((firmware["version"], firmware["buildid"]), None)
+
+    import pprint
+
+    pprint.pprint(versions)
+
+
+def regular_version_from_ota_version(ota_version: str) -> str:
+    if ota_version.startswith("9.9."):
+        return ota_version[4:]
+    return ota_version
 
 
 def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
