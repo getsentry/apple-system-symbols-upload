@@ -331,8 +331,6 @@ def unpack_ota(payload_path: str, output_path: str) -> None:
             subprocess.check_call(
                 [os.path.join(IOS_UTILS_DIR, "ota"), "-e", "*", path],
                 cwd=output_path,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
             )
         except subprocess.CalledProcessError as err:
             # This shit likes to segfault. Ignore that
