@@ -1,6 +1,7 @@
 import click
 import logging
 import os
+import re
 import plistlib
 import subprocess
 import sys
@@ -14,6 +15,8 @@ from urllib.parse import ParseResult, urlparse
 import requests
 import sentry_sdk
 
+
+_ota_payload_pattern = re.compile(r"^payload\.[0-9]{3}$")
 
 IOS_UTILS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ios-utils")
 
@@ -136,7 +139,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
                                 ota.bundle_id,
                             )
 
-            if not upload:
+            if upload:
                 with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
                     upload_to_gcs(symcache_output)
 
@@ -181,7 +184,7 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
                                     ipsw.architecture,
                                 )
 
-            if not upload:
+            if upload:
                 with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
                     upload_to_gcs(symcache_output)
 
@@ -274,17 +277,14 @@ def extract_symbols_from_one_ota_archive(
 
         with span.start_child(op="task", description="Extract OTA archive"):
             extract_zip_archive(ota_archive_path, level1_extract_dir)
-        with span.start_child(op="task", description="Decompress payloadv2"):
-            decompress_payloadv2(
-                os.path.join(level1_extract_dir, "AssetData", "payloadv2", "payload"),
-                uncompressed_payload,
-            )
+
+        payloadv2 = os.path.join(level1_extract_dir, "AssetData", "payloadv2")
 
         with tempfile.TemporaryDirectory(
             prefix="_sentry_final_ota_extract_dir_"
         ) as level2_extract_dir:
             with span.start_child(op="task", description="Unpack OTA from payload"):
-                unpack_ota(uncompressed_payload, level2_extract_dir)
+                unpack_ota(payloadv2, level2_extract_dir)
 
             shared_cache_dir = os.path.join(
                 level2_extract_dir,
@@ -325,12 +325,29 @@ def decompress_payloadv2(payload_path: str, output_path: str) -> None:
 
 def unpack_ota(payload_path: str, output_path: str) -> None:
     logging.info(f"Unpacking OTA from {payload_path}")
-    subprocess.check_call(
-        [os.path.join(IOS_UTILS_DIR, "ota"), "-e", payload_path],
-        cwd=output_path,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+
+    def run_ota(path):
+        try:
+            subprocess.check_call(
+                [os.path.join(IOS_UTILS_DIR, "ota"), "-e", "*", path],
+                cwd=output_path,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError as err:
+            # This shit likes to segfault. Ignore that
+            if err.returncode != -11:
+                raise
+
+    single_payload = os.path.join(payload_path, "payload")
+    if os.path.isfile(single_payload):
+        run_ota(single_payload)
+
+    files = [x for x in os.listdir(payload_path) if _ota_payload_pattern.match(x)]
+    files.sort()
+
+    for filename in files:
+        run_ota(os.path.join(payload_path, filename))
 
 
 def process_shared_cache_file(

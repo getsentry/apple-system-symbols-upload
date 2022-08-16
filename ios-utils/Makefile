@@ -1,10 +1,7 @@
-all: pbzx ota
+all: ota
 
-pbzx:
-		$(CC) -I/opt/homebrew/include/ 02_decompress.c pbzx.c -o pbzx -llzma
-
-ota:
-		$(CC) ota.c -o ota
+ota: *.c
+		$(CC) -I/opt/homebrew/include/ -g 02_decompress.c ota.c -o ota -llzma
 
 clean:
-		rm -f ota pbzx
+		rm -f ota
