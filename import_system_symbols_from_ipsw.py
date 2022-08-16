@@ -290,6 +290,10 @@ def extract_symbols_from_one_ota_archive(
                 "com.apple.dyld",
             )
 
+            if not os.path.isdir(shared_cache_dir):
+                logging.warning(f"No dyld shared cache found in {shared_cache_dir}")
+                return
+
             for filename in os.listdir(shared_cache_dir):
                 if (
                     not filename.startswith("dyld_shared_cache")
