@@ -6,6 +6,10 @@ inputs:
     required: true
   os_version:
     default: 'latest'
+  fetch_ipsw:
+    default: true
+  fetch_ota:
+    default: false
 
 runs:
   using: composite
@@ -13,6 +17,11 @@ runs:
     - uses: ./.github/actions/setup-import-system-symbols
       with:
         gcp_service_key: ${{ inputs.gcp_service_key }}
-    - name: Import symbols
+    - name: Import symbols from IPSW
       shell: bash
-      run: python3 import_system_symbols_from_ipsw.py --os_name ${{ inputs.os_name }} --os_version ${{ inputs.os_version }}
+      if: ${{ inputs.fetch_ipsw }}
+      run: python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ipsw
+    - name: Import symbols from OTA
+      shell: bash
+      if: ${{ inputs.fetch_ota }}
+      run: python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ota

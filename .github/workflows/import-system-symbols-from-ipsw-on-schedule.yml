@@ -19,6 +19,7 @@ jobs:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: tvos
         os_version: latest
+        fetch_ota: true
   import-ios-system-symbols-from-ipsw:
     runs-on: 'macos-12'
     steps:
@@ -29,6 +30,7 @@ jobs:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: ios
         os_version: latest
+        fetch_ota: true
   import-macos-system-symbols-from-ipsw:
     runs-on: 'macos-12'
     steps:
@@ -39,6 +41,7 @@ jobs:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: macos
         os_version: latest
+        fetch_ota: false
   import-watchos-system-symbols-from-ipsw:
     runs-on: 'macos-12'
     steps:
@@ -49,3 +52,4 @@ jobs:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         os_name: watchos
         os_version: latest
+        fetch_ota: true

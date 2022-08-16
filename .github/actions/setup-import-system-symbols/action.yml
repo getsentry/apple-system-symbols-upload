@@ -26,7 +26,10 @@ runs:
         gcloud auth activate-service-account --key-file="$key_path"
     - name: "Install dependencies"
       shell: bash
-      run: brew install p7zip keith/formulae/dyld-shared-cache-extractor
+      run: brew install p7zip lzip keith/formulae/dyld-shared-cache-extractor
+    - name: "Compile ios-utils"
+      shell: bash
+      run: cd ios-utils && make
     - name: "Install symsorter"
       shell: bash
       run: |
