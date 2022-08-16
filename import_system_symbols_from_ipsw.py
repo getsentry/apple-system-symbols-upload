@@ -1,4 +1,4 @@
-import argparse
+import click
 import logging
 import os
 import plistlib
@@ -72,24 +72,29 @@ class OTA:
         return f"{self.device_identifier}_{self.os_version}_{self.build_number}_ota"
 
 
-def main():
+@click.command()
+@click.option("--os-name", help="The os name to check for", required=True)
+@click.option(
+    "--os-version",
+    help=(
+        "The version of iOS to request IPSWs/OTAs for (defaults to latest). "
+        "For OTAs this can be set to 'all' to force all to download."
+    ),
+)
+@click.option(
+    "--type",
+    type=click.Choice(["ota", "ipsw"]),
+    default=("ipsw",),
+    multiple=True,
+    help="The type of firmware to download. Defaults to ipsw.",
+)
+def main(os_name, os_version, type):
     logging.basicConfig(level=logging.INFO, format="[sentry] %(message)s")
-    parser = argparse.ArgumentParser(
-        description="Downloads new iOS firmware, extracts symbols, and uploads them to Cloud Storage"
-    )
-    parser.add_argument("--os_name", help="The OS name to check for")
-    parser.add_argument(
-        "--os_version",
-        default="latest",
-        help="The version of iOS to request IPSWs for (defaults to latest)",
-    )
-    args = parser.parse_args()
 
-    if args.os_name is None:
-        sys.exit("You need to specify an OS name to check for.")
-
-    main_download_otas(args.os_name, args.os_version)
-    main_download_ipsws(args.os_name, args.os_version)
+    if "ota" in type:
+        main_download_otas(os_name, os_version)
+    if "ipsw" in type:
+        main_download_ipsws(os_name, os_version)
 
 
 def main_download_otas(os_name: str, os_version: str):
@@ -426,11 +431,14 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
             if not qualifying_firmwares:
                 continue
 
-            if version == "latest":
-                actual_version = qualifying_firmwares[-1]["version"]
+            if version == "all":
+                firmwares = qualifying_firmwares
             else:
-                actual_version = version
-            firmwares = [x for x in qualifying_firmwares if x["version"] == actual_version]
+                if version == "latest":
+                    actual_version = qualifying_firmwares[-1]["version"]
+                else:
+                    actual_version = version
+                firmwares = [x for x in qualifying_firmwares if x["version"] == actual_version]
 
             for firmware in firmwares:
                 normal_version = regular_version_from_ota_version(firmware["version"])

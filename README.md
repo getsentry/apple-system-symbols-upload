@@ -44,11 +44,11 @@ python3 -m pip install --user -r requirements.txt
 ### Upload simulators
 You need to specify which os you want to extract the symbols for and it will target the latest version.
 ```python
-python3 import_system_symbols_from_ipsw.py --os_name tvos
+python3 import_system_symbols_from_ipsw.py --os-name tvos
 ```
 You can also specify a specific version of the OS.
 ```python
-python3 import_system_symbols_from_ipsw.py --os_name tvos --os_version 15.3
+python3 import_system_symbols_from_ipsw.py --os-name tvos --os-version 15.3
 ```
 The script to extract from simulators doesn't take any argument.
 ```python
