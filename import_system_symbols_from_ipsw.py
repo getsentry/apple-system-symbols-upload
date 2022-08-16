@@ -2,9 +2,9 @@ import click
 import logging
 import os
 import re
+import sys
 import plistlib
 import subprocess
-import sys
 import tempfile
 from datetime import datetime
 from dataclasses import asdict, dataclass
@@ -273,8 +273,6 @@ def extract_symbols_from_one_ota_archive(
 ) -> None:
     span = sentry_sdk.Hub.current.scope.span
     with tempfile.TemporaryDirectory(prefix="_sentry_ota_extract_dir_") as level1_extract_dir:
-        uncompressed_payload = os.path.join(level1_extract_dir, "uncompressed_payload")
-
         with span.start_child(op="task", description="Extract OTA archive"):
             extract_zip_archive(ota_archive_path, level1_extract_dir)
 
@@ -333,9 +331,7 @@ def unpack_ota(payload_path: str, output_path: str) -> None:
                 cwd=output_path,
             )
         except subprocess.CalledProcessError as err:
-            # This shit likes to segfault. Ignore that
-            if err.returncode != -11:
-                raise
+            logging.error(f"Failed to unpack OTA payload: {err}", exc_info=sys.exc_info())
 
     single_payload = os.path.join(payload_path, "payload")
     if os.path.isfile(single_payload):
@@ -487,7 +483,6 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
     rv = []
 
     for version in versions.values():
-        print(version)
         for info in version.values():
             ota = OTA(
                 os_name=os_name,
@@ -579,7 +574,6 @@ def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
     elif "No URLs matched" in result.stdout:
         return False
     # Fallback to raising an exception for other errors.
-    print(result.stdout)
     result.check_returncode()
     return False
 
