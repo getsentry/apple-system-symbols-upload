@@ -88,16 +88,17 @@ class OTA:
     multiple=True,
     help="The type of firmware to download. Defaults to ipsw.",
 )
-def main(os_name, os_version, type):
+@click.option("--no-upload", is_flag=True, help="Don't upload the symbols to GCS")
+def main(os_name, os_version, type, no_upload):
     logging.basicConfig(level=logging.INFO, format="[sentry] %(message)s")
 
     if "ota" in type:
-        main_download_otas(os_name, os_version)
+        main_download_otas(os_name, os_version, not no_upload)
     if "ipsw" in type:
-        main_download_ipsws(os_name, os_version)
+        main_download_ipsws(os_name, os_version, not no_upload)
 
 
-def main_download_otas(os_name: str, os_version: str):
+def main_download_otas(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
         op="task", name="import symbols from OTA archive"
     ) as transaction:
@@ -135,11 +136,12 @@ def main_download_otas(os_name: str, os_version: str):
                                 ota.bundle_id,
                             )
 
-            with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
-                upload_to_gcs(symcache_output)
+            if not upload:
+                with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
+                    upload_to_gcs(symcache_output)
 
 
-def main_download_ipsws(os_name: str, os_version: str):
+def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
         op="task", name="import symbols from IPSW archive"
     ) as transaction:
@@ -178,8 +180,10 @@ def main_download_ipsws(os_name: str, os_version: str):
                                     ipsw.os_name,
                                     ipsw.architecture,
                                 )
-            with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
-                upload_to_gcs(symcache_output)
+
+            if not upload:
+                with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
+                    upload_to_gcs(symcache_output)
 
 
 def download_archive(url: str, filepath: str) -> None:
@@ -424,11 +428,18 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
     span = sentry_sdk.Hub.current.scope.span
     for device in DEVICES_TO_CHECK.get(os_name, []):
         with span.start_child(op="http.client", description="Fetch all versions"):
+            logging.info(f"Finding OTA releases for {device.identifier}")
             res = requests.get(f"https://api.ipsw.me/v4/device/{device.identifier}?type=ota")
             res.raise_for_status()
 
             qualifying_firmwares = sorted(
-                [x for x in res.json()["firmwares"] if x["releasetype"] != "Beta"],
+                [
+                    x
+                    for x in res.json()["firmwares"]
+                    if x["releasetype"] != "Beta"
+                    and not x["prerequisitebuildid"]
+                    and not x["prerequisiteversion"]
+                ],
                 key=lambda x: parse_date(x["releasedate"]),
             )
 
@@ -450,6 +461,7 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
                 versions.setdefault(key, {})[firmware["url"]] = firmware
 
         with span.start_child(op="http.client", description="Fetch all IPSWs for diffing"):
+            logging.info(f"Finding IPSW releases for {device.identifier} for diffing")
             res = requests.get(f"https://api.ipsw.me/v4/device/{device.identifier}?type=ipsw")
             res.raise_for_status()
 
@@ -460,6 +472,7 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
     rv = []
 
     for version in versions.values():
+        print(version)
         for info in version.values():
             ota = OTA(
                 os_name=os_name,
@@ -469,6 +482,7 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
                 url=urlparse(info["url"]),
             )
 
+            logging.info(f"Check if we have {ota.bundle_id} on GCS")
             with span.start_child(
                 op="task", description="Check if OTA version has symbols already"
             ) as symbols_span:
@@ -476,6 +490,8 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
                     symbols_span.set_data("has_symbols_in_cloud_storage", True)
                     logging.info(f"We already have symbols for {ota.bundle_id}")
                     continue
+                else:
+                    logging.info(f"Need to download and process {ota.bundle_id}")
 
             rv.append(ota)
 
@@ -516,6 +532,7 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
             device_span.set_data("latest_os_version", latest_os_version)
             device_span.set_data("latest_build_nunber", latest_build_number)
 
+            logging.info(f"Check if we have {ipsw.bundle_id} on GCS")
             with device_span.start_child(
                 op="task", description="Check if version has symbols already"
             ) as symbols_span:
@@ -523,6 +540,8 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
                     symbols_span.set_data("has_symbols_in_cloud_storage", True)
                     logging.info(f"We already have symbols for {ipsw.bundle_id}")
                     continue
+                else:
+                    logging.info(f"Need to download and process {ipsw.bundle_id}")
 
             build_key = f"{os_name}-{latest_os_version}-{latest_build_number}-{device.architecture}"
             if build_to_ipsw.get(build_key):
