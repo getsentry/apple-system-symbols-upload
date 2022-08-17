@@ -115,28 +115,34 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
         with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
             with tempfile.TemporaryDirectory(prefix="_sentry_ota_archives_") as ota_dir:
                 for ota in otas:
-                    with transaction.start_child(
-                        op="task", description="Process OTA archive"
-                    ) as ota_span:
-                        for k, v in asdict(ota).items():
-                            ota_span.set_data(k, v)
+                    try:
+                        with transaction.start_child(
+                            op="task", description="Process OTA archive"
+                        ) as ota_span:
+                            for k, v in asdict(ota).items():
+                                ota_span.set_data(k, v)
 
-                        with ota_span.start_child(
-                            op="task", description="Download new version"
-                        ) as span:
-                            local_path = os.path.join(ota_dir, os.path.basename(ota.url.path))
-                            url = ota.url.geturl()
-                            span.set_data("url", url)
-                            download_archive(url, local_path)
+                            with ota_span.start_child(
+                                op="task", description="Download new version"
+                            ) as span:
+                                local_path = os.path.join(ota_dir, os.path.basename(ota.url.path))
+                                url = ota.url.geturl()
+                                span.set_data("url", url)
+                                download_archive(url, local_path)
 
-                        with ota_span.start_child(
-                            op="task", description="Extract symbols from archive"
-                        ) as span:
-                            extract_symbols_from_one_ota_archive(
-                                local_path,
-                                symcache_output,
-                                os_name,
-                                ota.bundle_id,
+                            with ota_span.start_child(
+                                op="task", description="Extract symbols from archive"
+                            ) as span:
+                                extract_symbols_from_one_ota_archive(
+                                    local_path,
+                                    symcache_output,
+                                    os_name,
+                                    ota.bundle_id,
+                                )
+                    except Exception as e:
+                        if os_version == "all":
+                            logging.error(
+                                "Failed to process OTA archive: %s", e, exc_info=sys.exc_info()
                             )
 
             if upload:
@@ -331,7 +337,7 @@ def unpack_ota(payload_path: str, output_path: str) -> None:
                 cwd=output_path,
             )
         except subprocess.CalledProcessError as err:
-            logging.error(f"Failed to unpack OTA payload: {err}", exc_info=sys.exc_info())
+            logging.error("Failed to unpack OTA payload: %s", err, exc_info=sys.exc_info())
 
     single_payload = os.path.join(payload_path, "payload")
     if os.path.isfile(single_payload):
