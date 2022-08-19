@@ -46,7 +46,11 @@ DEVICES_TO_CHECK: Dict[str, List[Device]] = {
             architecture="arm64e",
         ),
     ],
-    "watchos": [],
+    "watchos": [
+        Device(identifier="Watch5,4", name="Apple Watch Series 5 (44mm, LTE)", architecture="arm64e"),
+        Device(identifier="Watch4,3", name="Apple Watch Series 4 (40mm, LTE)", architecture="arm64e"),
+        Device(identifier="Watch3,4", name="Apple Watch Series 3 (42mm)", architecture="arm64e"),
+    ],
 }
 
 
