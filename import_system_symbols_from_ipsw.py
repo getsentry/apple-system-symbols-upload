@@ -37,6 +37,7 @@ DEVICES_TO_CHECK: Dict[str, List[Device]] = {
     ],
     "tvos": [
         Device(identifier="AppleTV5,3", name="AppleTV 4 (2015)", architecture="arm64"),
+        Device(identifier="AppleTV6,2", name="AppleTV 4 (2015)", architecture="arm64"),
     ],
     "macos": [
         Device(
@@ -105,7 +106,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
         op="task", name="import symbols from OTA archive"
     ) as transaction:
-        with sentry_sdk.start_transaction(op="task", name="checking OTAs") as transaction:
+        with sentry_sdk.start_transaction(op="task", name="Checking OTAs") as transaction:
             with transaction.start_child(op="task", description="Check for new versions") as span:
                 otas = get_missing_ota_only_releases(os_name, os_version)
                 if len(otas) == 0:
@@ -510,6 +511,8 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
                     logging.info(f"Need to download and process {ota.bundle_id}")
 
             rv.append(ota)
+
+    logging.info("Missing versions %s", sorted(set(x.os_version for x in rv)))
 
     return rv
 
