@@ -1,20 +1,20 @@
-import click
 import logging
 import os
-import re
-import sys
 import plistlib
+import re
 import subprocess
+import sys
 import tempfile
-from datetime import datetime
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 from urllib.parse import ParseResult, urlparse
 
+import click
 import requests
 import sentry_sdk
-
+from packaging import version
 
 _ota_payload_pattern = re.compile(r"^payload\.[0-9]{3}$")
 
@@ -47,8 +47,12 @@ DEVICES_TO_CHECK: Dict[str, List[Device]] = {
         ),
     ],
     "watchos": [
-        Device(identifier="Watch5,4", name="Apple Watch Series 5 (44mm, LTE)", architecture="arm64e"),
-        Device(identifier="Watch4,3", name="Apple Watch Series 4 (40mm, LTE)", architecture="arm64e"),
+        Device(
+            identifier="Watch5,4", name="Apple Watch Series 5 (44mm, LTE)", architecture="arm64e"
+        ),
+        Device(
+            identifier="Watch4,3", name="Apple Watch Series 4 (40mm, LTE)", architecture="arm64e"
+        ),
         Device(identifier="Watch3,4", name="Apple Watch Series 3 (42mm)", architecture="arm64e"),
     ],
 }
@@ -84,6 +88,7 @@ class OTA:
 @click.option("--os-name", help="The os name to check for", required=True)
 @click.option(
     "--os-version",
+    default="latest",
     help=(
         "The version of iOS to request IPSWs/OTAs for (defaults to latest). "
         "For OTAs this can be set to 'all' to force all to download."
@@ -219,10 +224,15 @@ def extract_symbols_from_one_ipsw_archive(
     with span.start_child(op="task", description="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
     plist_path = os.path.join(extract_dir, "Restore.plist")
-    (restore_images, os_version, build_number) = read_restore_plist(plist_path)
+    (system_restore_image_filename, os_version, build_number) = read_restore_plist(plist_path)
 
-    # Use the first one only since the rest is the otaecovery OS
-    system_restore_image_filename = list(restore_images.keys())[0]
+    # Starting iOS 16.0, dyld caches are in a different image
+    if prefix == "ios" and version.parse(os_version) >= version.parse("16.0"):
+        plist_path = os.path.join(extract_dir, "BuildManifest.plist")
+        (system_restore_image_filename, os_version, build_number) = read_build_manifest_plist(
+            plist_path
+        )
+
     restore_image_path = os.path.join(extract_dir, system_restore_image_filename)
 
     logging.info(f"Mounting {restore_image_path}")
@@ -418,16 +428,28 @@ def extract_zip_archive(archive_path: str, extract_dir: str) -> None:
     )
 
 
-def read_restore_plist(plist_path: str):
+def read_build_manifest_plist(plist_path: str):
     with open(plist_path, "rb") as f:
         plist = plistlib.load(f)
-        restore_images = plist["SystemRestoreImageFileSystems"]
+        restore_image = plist["BuildIdentities"][0]["Manifest"]["Cryptex1,SystemOS"]["Info"]["Path"]
         build_number = plist["ProductBuildVersion"]
         os_version = plist["ProductVersion"]
         logging.info(
             f"Found image for {os_version} ({build_number}) in {os.path.dirname(plist_path)}"
         )
-    return restore_images, os_version, build_number
+    return restore_image, os_version, build_number
+
+
+def read_restore_plist(plist_path: str):
+    with open(plist_path, "rb") as f:
+        plist = plistlib.load(f)
+        restore_image = list(plist["SystemRestoreImageFileSystems"].keys())[0]
+        build_number = plist["ProductBuildVersion"]
+        os_version = plist["ProductVersion"]
+        logging.info(
+            f"Found image for {os_version} ({build_number}) in {os.path.dirname(plist_path)}"
+        )
+    return restore_image, os_version, build_number
 
 
 def upload_to_gcs(symcache_dir: str):
@@ -455,13 +477,13 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
             res.raise_for_status()
 
             qualifying_firmwares = sorted(
-                [
+                (
                     x
                     for x in res.json()["firmwares"]
                     if x["releasetype"] != "Beta"
                     and not x["prerequisitebuildid"]
                     and not x["prerequisiteversion"]
-                ],
+                ),
                 key=lambda x: parse_date(x["releasedate"]),
             )
 
@@ -516,7 +538,7 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
 
             rv.append(ota)
 
-    logging.info("Missing versions %s", sorted(set(x.os_version for x in rv)))
+    logging.info("Missing versions %s", sorted({x.os_version for x in rv}))
 
     return rv
 
