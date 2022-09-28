@@ -241,7 +241,7 @@ def extract_symbols_from_one_ipsw_archive(
         and parsed_version >= version.parse("16.0")
     ):
         system_restore_image_filename = read_build_manifest_plist(extract_dir)
-        with span.start_children(op="task", description="Process one dmg"):
+        with span.start_child(op="task", description="Process one dmg"):
             process_one_dmg(
                 extract_dir,
                 symcache_output_path,
@@ -253,7 +253,7 @@ def extract_symbols_from_one_ipsw_archive(
             )
     else:
         for system_restore_image_filename in read_restore_plist(extract_dir):
-            with span.start_children(op="task", description="Process one dmg"):
+            with span.start_child(op="task", description="Process one dmg"):
                 process_one_dmg(
                     extract_dir,
                     symcache_output_path,
