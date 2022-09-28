@@ -8,7 +8,7 @@ import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from urllib.parse import ParseResult, urlparse
 
 import click
@@ -223,17 +223,54 @@ def extract_symbols_from_one_ipsw_archive(
     span = sentry_sdk.Hub.current.scope.span
     with span.start_child(op="task", description="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
-    plist_path = os.path.join(extract_dir, "Restore.plist")
-    (system_restore_image_filename, os_version, build_number) = read_restore_plist(plist_path)
 
-    # Starting iOS 16.0, dyld caches are in a different image
-    if prefix == "ios" and version.parse(os_version) >= version.parse("16.0"):
-        plist_path = os.path.join(extract_dir, "BuildManifest.plist")
-        (system_restore_image_filename, os_version, build_number) = read_build_manifest_plist(
-            plist_path
-        )
+    os_version, build_number = read_system_version_plist(extract_dir)
+    logging.info(f"Found image for {os_version} ({build_number}) in {extract_dir}")
+    parsed_version = version.parse(os_version)
 
+    # Starting iOS 16.0 and macOS 13.0, dyld caches are in a different image
+    if (
+        prefix == "macos"
+        and parsed_version >= version.parse("13.0")
+        or prefix == "ios"
+        and parsed_version >= version.parse("16.0")
+    ):
+        system_restore_image_filename = read_build_manifest_plist(extract_dir)
+        with span.start_children(op="task", description="Process one dmg"):
+            process_one_dmg(
+                extract_dir,
+                symcache_output_path,
+                prefix,
+                architecture,
+                system_restore_image_filename,
+                os_version,
+                build_number,
+            )
+    else:
+        for system_restore_image_filename in read_restore_plist(extract_dir):
+            with span.start_children(op="task", description="Process one dmg"):
+                process_one_dmg(
+                    extract_dir,
+                    symcache_output_path,
+                    prefix,
+                    architecture,
+                    system_restore_image_filename,
+                    os_version,
+                    build_number,
+                )
+
+
+def process_one_dmg(
+    extract_dir,
+    symcache_output_path,
+    prefix,
+    architecture,
+    system_restore_image_filename,
+    os_version,
+    build_number,
+):
     restore_image_path = os.path.join(extract_dir, system_restore_image_filename)
+    span = sentry_sdk.Hub.current.scope.span
 
     logging.info(f"Mounting {restore_image_path}")
     with span.start_child(op="task", description="Mount archive"):
@@ -428,28 +465,22 @@ def extract_zip_archive(archive_path: str, extract_dir: str) -> None:
     )
 
 
-def read_build_manifest_plist(plist_path: str):
-    with open(plist_path, "rb") as f:
+def read_system_version_plist(extract_dir: str) -> Tuple[str, str]:
+    with open(os.path.join(extract_dir, "SystemVersion.plist"), "rb") as f:
         plist = plistlib.load(f)
-        restore_image = plist["BuildIdentities"][0]["Manifest"]["Cryptex1,SystemOS"]["Info"]["Path"]
-        build_number = plist["ProductBuildVersion"]
-        os_version = plist["ProductVersion"]
-        logging.info(
-            f"Found image for {os_version} ({build_number}) in {os.path.dirname(plist_path)}"
-        )
-    return restore_image, os_version, build_number
+        return plist["ProductVersion"], plist["ProductBuildVersion"]
 
 
-def read_restore_plist(plist_path: str):
-    with open(plist_path, "rb") as f:
+def read_build_manifest_plist(extract_dir: str) -> str:
+    with open(os.path.join(extract_dir, "BuildManifest.plist"), "rb") as f:
         plist = plistlib.load(f)
-        restore_image = list(plist["SystemRestoreImageFileSystems"].keys())[0]
-        build_number = plist["ProductBuildVersion"]
-        os_version = plist["ProductVersion"]
-        logging.info(
-            f"Found image for {os_version} ({build_number}) in {os.path.dirname(plist_path)}"
-        )
-    return restore_image, os_version, build_number
+        return plist["BuildIdentities"][0]["Manifest"]["Cryptex1,SystemOS"]["Info"]["Path"]
+
+
+def read_restore_plist(extract_dir: str) -> List[str]:
+    with open(os.path.join(extract_dir, "Restore.plist"), "rb") as f:
+        plist = plistlib.load(f)
+        return list(plist["SystemRestoreImageFileSystems"].keys())
 
 
 def upload_to_gcs(symcache_dir: str):
