@@ -45,6 +45,11 @@ DEVICES_TO_CHECK: Dict[str, List[Device]] = {
             name="MacBook Pro (M1 Pro, 14-inch, 2021)",
             architecture="arm64e",
         ),
+        Device(
+            identifier="MacBookAir10,1",
+            name="MacBook Air (M1, Late 2020)",
+            architecture="arm64e",
+        ),
     ],
     "watchos": [
         Device(
