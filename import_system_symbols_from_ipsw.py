@@ -372,18 +372,6 @@ def extract_symbols_from_one_ota_archive(
             symsort_utilities(level2_extract_dir, prefix, bundle_id, symcache_output_path)
 
 
-def decompress_payloadv2(payload_path: str, output_path: str) -> None:
-    logging.info(f"Uncompressing {payload_path}")
-    with open(payload_path, "rb") as payload:
-        with open(output_path, "wb") as output:
-            subprocess.check_call(
-                [os.path.join(IOS_UTILS_DIR, "pbzx"), payload_path],
-                stdin=payload,
-                stdout=output,
-                stderr=subprocess.DEVNULL,
-            )
-
-
 def unpack_ota(payload_path: str, output_path: str) -> None:
     logging.info(f"Unpacking OTA from {payload_path}")
 
