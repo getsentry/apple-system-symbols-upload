@@ -31,6 +31,7 @@ class Device:
 DEVICES_TO_CHECK: Dict[str, List[Device]] = {
     "ios": [
         Device(identifier="iPhone14,2", name="iPhone 13 Pro", architecture="arm64e"),
+        Device(identifier="iPhone10,6", name="iPhone X (GSM)", architecture="arm64"),
         Device(identifier="iPhone8,1", name="iPhone 6S", architecture="arm64"),
         Device(identifier="iPad12,1", name="iPad 9", architecture="arm64e"),
         Device(identifier="iPad5,4", name="iPad Air 2", architecture="arm64"),
