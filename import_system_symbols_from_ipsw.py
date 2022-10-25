@@ -229,9 +229,13 @@ def extract_symbols_from_one_ipsw_archive(
     with span.start_child(op="task", description="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
 
-    os_version, build_number = read_system_version_plist(extract_dir)
-    logging.info(f"Found image for {os_version} ({build_number}) in {extract_dir}")
+    if prefix == "macos":
+        os_version, build_number = read_system_version_plist(extract_dir)
+    else:
+        os_version, build_number = read_version_from_restore_plist(extract_dir)
+
     parsed_version = version.parse(os_version)
+    logging.info(f"Found image for {os_version} ({build_number}) in {extract_dir}")
 
     # Starting iOS 16.0 and macOS 13.0, dyld caches are in a different image
     if (
@@ -477,6 +481,12 @@ def read_restore_plist(extract_dir: str) -> List[str]:
     with open(os.path.join(extract_dir, "Restore.plist"), "rb") as f:
         plist = plistlib.load(f)
         return list(plist["SystemRestoreImageFileSystems"].keys())
+
+
+def read_version_from_restore_plist(extract_dir: str) -> Tuple[str, str]:
+    with open(os.path.join(extract_dir, "Restore.plist"), "rb") as f:
+        plist = plistlib.load(f)
+        return plist["ProductVersion"], plist["ProductBuildVersion"]
 
 
 def upload_to_gcs(symcache_dir: str):
