@@ -281,7 +281,10 @@ def process_one_dmg(
     with span.start_child(op="task", description="Mount archive"):
         volume_path = (
             subprocess.check_output(
-                [f"hdiutil attach {restore_image_path} | grep /Volumes/ | cut -f 3"], shell=True
+                [
+                    f"hdiutil attach -noverify -verbose -debug {restore_image_path} | grep /Volumes/ | cut -f 3"
+                ],
+                shell=True,
             )
             .decode("utf-8")
             .strip()
