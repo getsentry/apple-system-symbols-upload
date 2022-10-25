@@ -282,7 +282,7 @@ def process_one_dmg(
         volume_path = (
             subprocess.check_output(
                 [
-                    f"hdiutil attach -noverify -verbose -debug {restore_image_path} | grep /Volumes/ | cut -f 3"
+                    f"hdiutil attach -noverify -noautoopen -noauofsck -verbose -debug -mountrandom {extract_dir} {restore_image_path} | grep /Volumes/ | cut -f 3"
                 ],
                 shell=True,
             )
