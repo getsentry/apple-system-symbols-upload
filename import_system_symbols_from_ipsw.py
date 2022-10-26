@@ -31,6 +31,7 @@ class Device:
 DEVICES_TO_CHECK: Dict[str, List[Device]] = {
     "ios": [
         Device(identifier="iPhone14,2", name="iPhone 13 Pro", architecture="arm64e"),
+        Device(identifier="iPhone10,6", name="iPhone X (GSM)", architecture="arm64"),
         Device(identifier="iPhone8,1", name="iPhone 6S", architecture="arm64"),
         Device(identifier="iPad12,1", name="iPad 9", architecture="arm64e"),
         Device(identifier="iPad5,4", name="iPad Air 2", architecture="arm64"),
@@ -229,9 +230,13 @@ def extract_symbols_from_one_ipsw_archive(
     with span.start_child(op="task", description="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
 
-    os_version, build_number = read_system_version_plist(extract_dir)
-    logging.info(f"Found image for {os_version} ({build_number}) in {extract_dir}")
+    if prefix == "macos":
+        os_version, build_number = read_system_version_plist(extract_dir)
+    else:
+        os_version, build_number = read_version_from_restore_plist(extract_dir)
+
     parsed_version = version.parse(os_version)
+    logging.info(f"Found image for {os_version} ({build_number}) in {extract_dir}")
 
     # Starting iOS 16.0 and macOS 13.0, dyld caches are in a different image
     if (
@@ -281,9 +286,7 @@ def process_one_dmg(
     with span.start_child(op="task", description="Mount archive"):
         volume_path = (
             subprocess.check_output(
-                [
-                    f"hdiutil attach -noverify -verbose -debug {restore_image_path} | grep /Volumes/ | cut -f 3"
-                ],
+                [f"hdiutil attach {restore_image_path} | grep /Volumes/ | cut -f 3"],
                 shell=True,
             )
             .decode("utf-8")
@@ -477,6 +480,12 @@ def read_restore_plist(extract_dir: str) -> List[str]:
     with open(os.path.join(extract_dir, "Restore.plist"), "rb") as f:
         plist = plistlib.load(f)
         return list(plist["SystemRestoreImageFileSystems"].keys())
+
+
+def read_version_from_restore_plist(extract_dir: str) -> Tuple[str, str]:
+    with open(os.path.join(extract_dir, "Restore.plist"), "rb") as f:
+        plist = plistlib.load(f)
+        return plist["ProductVersion"], plist["ProductBuildVersion"]
 
 
 def upload_to_gcs(symcache_dir: str):
