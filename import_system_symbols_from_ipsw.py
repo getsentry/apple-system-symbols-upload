@@ -283,7 +283,9 @@ def process_one_dmg(
     span = sentry_sdk.Hub.current.scope.span
 
     logging.info(f"Mounting {restore_image_path}")
-    with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_mountpoint_") as ipsw_mountpoint:
+    with tempfile.TemporaryDirectory(
+        prefix="_sentry_dmg_mountpoint_", dir="/Users/runner/work"
+    ) as dmg_mountpoint:
         with span.start_child(op="task", description="Mount archive"):
             subprocess.check_call(
                 [
@@ -292,7 +294,7 @@ def process_one_dmg(
                     "restore_image_path",
                     "-noverify",
                     "-mountpoint",
-                    ipsw_mountpoint,
+                    dmg_mountpoint,
                 ],
             )
 
@@ -301,14 +303,14 @@ def process_one_dmg(
             span.set_data("bundle_id", bundle_id)
             if prefix == "macos":
                 shared_cache_dir = os.path.join(
-                    ipsw_mountpoint,
+                    dmg_mountpoint,
                     "System",
                     "Library",
                     "dyld",
                 )
             else:
                 shared_cache_dir = os.path.join(
-                    ipsw_mountpoint,
+                    dmg_mountpoint,
                     "System",
                     "Library",
                     "Caches",
@@ -329,12 +331,12 @@ def process_one_dmg(
                     filename, shared_cache_dir, prefix, bundle_id, symcache_output_path
                 )
 
-            symsort_utilities(ipsw_mountpoint, prefix, bundle_id, symcache_output_path)
+            symsort_utilities(dmg_mountpoint, prefix, bundle_id, symcache_output_path)
         finally:
             logging.info(f"Unmounting {restore_image_path}")
             with span.start_child(op="task", description="Unmount archive"):
                 subprocess.check_call(
-                    ["hdiutil", "detach", ipsw_mountpoint],
+                    ["hdiutil", "detach", dmg_mountpoint],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
