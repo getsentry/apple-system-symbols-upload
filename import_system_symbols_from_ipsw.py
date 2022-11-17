@@ -283,55 +283,61 @@ def process_one_dmg(
     span = sentry_sdk.Hub.current.scope.span
 
     logging.info(f"Mounting {restore_image_path}")
-    with span.start_child(op="task", description="Mount archive"):
-        volume_path = (
-            subprocess.check_output(
-                [f"hdiutil attach {restore_image_path} | grep /Volumes/ | cut -f 3"],
-                shell=True,
-            )
-            .decode("utf-8")
-            .strip()
-        )
-
-    try:
-        bundle_id = f"{os_version}_{build_number}_{architecture}"
-        span.set_data("bundle_id", bundle_id)
-        if prefix == "macos":
-            shared_cache_dir = os.path.join(
-                volume_path,
-                "System",
-                "Library",
-                "dyld",
-            )
-        else:
-            shared_cache_dir = os.path.join(
-                volume_path,
-                "System",
-                "Library",
-                "Caches",
-                "com.apple.dyld",
-            )
-        for filename in os.listdir(shared_cache_dir):
-            # iOS 15.0+ firmwares have multiple dyld_shared_cache files for the same architecture,
-            # e.g. dyld_shared_cache_arm64e.1, dyld_shared_cache_arm64e.2, etc.
-            # We can ignore these: https://github.com/keith/dyld-shared-cache-extractor/issues/1#issuecomment-924265280
-            #
-            # To extract these, Xcode 13.0+ needs to be the selected Xcode version.
-            if not filename.startswith("dyld_shared_cache") or os.path.splitext(filename)[1] != "":
-                continue
-            process_shared_cache_file(
-                filename, shared_cache_dir, prefix, bundle_id, symcache_output_path
-            )
-
-        symsort_utilities(volume_path, prefix, bundle_id, symcache_output_path)
-    finally:
-        logging.info(f"Unmounting {restore_image_path}")
-        with span.start_child(op="task", description="Unmount archive"):
+    with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_mountpoint_") as ipsw_mountpoint:
+        with span.start_child(op="task", description="Mount archive"):
             subprocess.check_call(
-                ["hdiutil", "detach", volume_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                [
+                    "hdiutil",
+                    "attach",
+                    "restore_image_path",
+                    "-noverify",
+                    "-mountpoint",
+                    ipsw_mountpoint,
+                ],
             )
+
+        try:
+            bundle_id = f"{os_version}_{build_number}_{architecture}"
+            span.set_data("bundle_id", bundle_id)
+            if prefix == "macos":
+                shared_cache_dir = os.path.join(
+                    ipsw_mountpoint,
+                    "System",
+                    "Library",
+                    "dyld",
+                )
+            else:
+                shared_cache_dir = os.path.join(
+                    ipsw_mountpoint,
+                    "System",
+                    "Library",
+                    "Caches",
+                    "com.apple.dyld",
+                )
+            for filename in os.listdir(shared_cache_dir):
+                # iOS 15.0+ firmwares have multiple dyld_shared_cache files for the same architecture,
+                # e.g. dyld_shared_cache_arm64e.1, dyld_shared_cache_arm64e.2, etc.
+                # We can ignore these: https://github.com/keith/dyld-shared-cache-extractor/issues/1#issuecomment-924265280
+                #
+                # To extract these, Xcode 13.0+ needs to be the selected Xcode version.
+                if (
+                    not filename.startswith("dyld_shared_cache")
+                    or os.path.splitext(filename)[1] != ""
+                ):
+                    continue
+                process_shared_cache_file(
+                    filename, shared_cache_dir, prefix, bundle_id, symcache_output_path
+                )
+
+            symsort_utilities(ipsw_mountpoint, prefix, bundle_id, symcache_output_path)
+        finally:
+            logging.info(f"Unmounting {restore_image_path}")
+            with span.start_child(op="task", description="Unmount archive"):
+                subprocess.check_call(
+                    ["hdiutil", "detach", ipsw_mountpoint],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
 
 def extract_symbols_from_one_ota_archive(
