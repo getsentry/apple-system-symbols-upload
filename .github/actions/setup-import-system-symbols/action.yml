@@ -42,3 +42,5 @@ runs:
     - name: Select Xcode version
       shell: bash
       run: sudo xcode-select -s /Applications/Xcode_13.3.app/Contents/Developer
+    - name: Install sentry-cli
+      run: curl -sL https://sentry.io/get-cli/ | sh
