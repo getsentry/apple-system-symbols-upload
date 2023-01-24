@@ -20,8 +20,8 @@ runs:
     - name: Import symbols from IPSW
       shell: bash
       if: ${{ inputs.fetch_ipsw }}
-      run: sentry-cli monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ipsw
+      run: sentry-cli --auth-token ${{ secrets.SENTRY_AUTH_TOKEN }} monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ipsw
     - name: Import symbols from OTA
       shell: bash
       if: ${{ inputs.fetch_ota }}
-      run: sentry-cli monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ota
+      run: sentry-cli --auth-token ${{ secrets.SENTRY_AUTH_TOKEN }} monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ota
