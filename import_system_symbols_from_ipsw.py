@@ -171,27 +171,28 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
         op="task", name="import symbols from IPSW archive"
     ) as transaction:
         with transaction.start_child(op="task", description="Check for new versions") as span:
-            ipsws = get_missing_ipsws(os_name, os_version)
-            if len(ipsws) == 0:
+            downloads, ipsws = get_missing_ipsws(os_name, os_version)
+            if len(downloads) == 0 or len(ipsws) == 0:
                 return
             span.set_data("new_archives", ipsws)
 
         with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
             with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
+                for raw_url in downloads.values():
+                    with transaction.start_child(
+                        op="task", description="Download new IPSW archive"
+                    ) as span:
+                        local_path = os.path.join(ipsw_dir, os.path.basename(raw_url.path))
+                        url = raw_url.geturl()
+                        span.set_data("url", url)
+                        download_archive(url, local_path)
+
                 for ipsw in ipsws:
                     with transaction.start_child(
                         op="task", description="Process IPSW archive"
                     ) as ipsw_span:
                         for k, v in asdict(ipsw).items():
                             ipsw_span.set_data(k, v)
-
-                        with ipsw_span.start_child(
-                            op="task", description="Download new version"
-                        ) as span:
-                            local_path = os.path.join(ipsw_dir, os.path.basename(ipsw.url.path))
-                            url = ipsw.url.geturl()
-                            span.set_data("url", url)
-                            download_archive(url, local_path)
                         with ipsw_span.start_child(
                             op="task", description="Extract symbols from archive"
                         ) as span:
@@ -199,7 +200,7 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
                                 prefix="_sentry_ipsw_extract_dir_"
                             ) as extract_dir:
                                 extract_symbols_from_one_ipsw_archive(
-                                    local_path,
+                                    os.path.join(ipsw_dir, os.path.basename(ipsw.url.path)),
                                     extract_dir,
                                     symcache_output,
                                     ipsw.os_name,
@@ -591,6 +592,7 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
 
     span = sentry_sdk.Hub.current.scope.span
     build_to_ipsw: Dict[str, IPSW] = {}
+    downloads: Dict[str, str] = {}
     for device in DEVICES_TO_CHECK.get(os_name, []):
         with span.start_child(op="http.client", description="Fetch latest versions") as device_span:
             res = requests.get(
@@ -624,15 +626,20 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
                 else:
                     logging.info(f"Need to download and process {ipsw.bundle_id}")
 
-            build_key = f"{os_name}-{latest_os_version}-{latest_build_number}-{device.architecture}"
-            if build_to_ipsw.get(build_key):
+            download_key = f"{os_name}-{latest_os_version}-{latest_build_number}"
+            if download_key not in downloads:
+                downloads[download_key] = ipsw.url
+
+            build_key = f"{download_key}-{device.architecture}"
+            if build_key in build_to_ipsw:
                 continue
 
             build_to_ipsw[build_key] = ipsw
-    return list(build_to_ipsw.values())
+    return downloads, list(build_to_ipsw.values())
 
 
 def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
+    return False
     storage_path = f"gs://sentryio-system-symbols-0/{prefix}/bundles/{bundle_id}"
     result = subprocess.run(
         ["gsutil", "stat", storage_path],
