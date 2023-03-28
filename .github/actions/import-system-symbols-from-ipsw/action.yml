@@ -18,10 +18,14 @@ runs:
       with:
         gcp_service_key: ${{ inputs.gcp_service_key }}
     - name: Import symbols from IPSW
+      env:
+          SENTRY_DSN: ${{ inputs.SENTRY_DSN }}
       shell: bash
       if: ${{ inputs.fetch_ipsw }}
-      run: sentry-cli --auth-token ${{ inputs.SENTRY_AUTH_TOKEN }} monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ipsw
+      run: sentry-cli monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ipsw
     - name: Import symbols from OTA
+      env:
+          SENTRY_DSN: ${{ inputs.SENTRY_DSN }}
       shell: bash
       if: ${{ inputs.fetch_ota }}
-      run: sentry-cli --auth-token ${{ inputs.SENTRY_AUTH_TOKEN }} monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ota
+      run: sentry-cli monitors run 09666664-597e-490c-ae2e-e1c22795fccd -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ota

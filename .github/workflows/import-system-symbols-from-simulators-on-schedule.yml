@@ -17,4 +17,4 @@ jobs:
       uses: ./.github/actions/import-system-symbols-from-simulators
       with:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
-        sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        sentry_dsn: ${{ secrets.SENTRY_dsn }}
