@@ -4,6 +4,11 @@ on:
   schedule:
     - cron:  '0 */4 * * *' # Check for new IPSWs every 4 hours
 
+  ## Remove before merging 
+  push:
+    branches:
+      - chore/cron-monitoring
+
 concurrency:
   group: import-system-symbols-from-ipsw-on-schedule
   cancel-in-progress: true
