@@ -2,6 +2,8 @@ name: import-system-symbols-from-simulators
 inputs:
   gcp_service_key:
     required: true
+  sentry_dsn:
+    required: true
 
 runs:
   using: composite
@@ -11,6 +13,6 @@ runs:
         gcp_service_key: ${{ inputs.gcp_service_key }}
     - name: Import symbols
       env:
-          SENTRY_DSN: ${{ inputs.SENTRY_DSN }}
+          SENTRY_DSN: ${{ inputs.sentry_dsn }}
       shell: bash
       run: sentry-cli monitors run 430ded42-54cb-427b-8fc7-433ac9ca8da5 -- python3 import_system_symbols_from_simulators.py
