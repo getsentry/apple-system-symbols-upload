@@ -119,7 +119,7 @@ def main(os_name, os_version, type, no_upload):
 
 def main_download_otas(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
-        op="task", name="import symbols from OTA archive"
+        op="task", name="import symbols from OTA archive for {os_name}"
     ) as transaction:
         with sentry_sdk.start_transaction(op="task", name="Checking OTAs") as transaction:
             with transaction.start_child(op="task", description="Check for new versions") as span:
@@ -168,7 +168,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
 
 def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
-        op="task", name="import symbols from IPSW archive"
+        op="task", name="import symbols from IPSW archive for {os_name}"
     ) as transaction:
         with transaction.start_child(op="task", description="Check for new versions") as span:
             ipsws = get_missing_ipsws(os_name, os_version)
