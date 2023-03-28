@@ -2,6 +2,8 @@ name: import-system-symbols-from-simulators
 inputs:
   gcp_service_key:
     required: true
+  sentry_auth_token:
+    required: true
 
 runs:
   using: composite
@@ -11,4 +13,4 @@ runs:
         gcp_service_key: ${{ inputs.gcp_service_key }}
     - name: Import symbols
       shell: bash
-      run: sentry-cli --auth-token ${{ inputs.SENTRY_AUTH_TOKEN }} monitors run 430ded42-54cb-427b-8fc7-433ac9ca8da5 -- python3 import_system_symbols_from_simulators.py
+      run: sentry-cli --auth-token ${{ inputs.sentry_auth_token }} monitors run 430ded42-54cb-427b-8fc7-433ac9ca8da5 -- python3 import_system_symbols_from_simulators.py
