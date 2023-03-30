@@ -8,7 +8,7 @@ import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 from urllib.parse import ParseResult, urlparse
 
 import click
@@ -70,11 +70,21 @@ class IPSW:
     build_number: str
     os_name: str
     os_version: str
-    url: ParseResult
+    archive_name: str
 
     @property
     def bundle_id(self) -> str:
         return f"{self.os_version}_{self.build_number}_{self.architecture}"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self.os_name}-{self.os_version}-{self.build_number}-{self.architecture}"
+
+    def __hash__(self) -> int:
+        return hash(self.unique_id)
+
+    def __eq__(self, o) -> bool:
+        return self.unique_id == o.unique_id
 
 
 @dataclass
@@ -171,41 +181,40 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
         op="task", name="import symbols from IPSW archive"
     ) as transaction:
         with transaction.start_child(op="task", description="Check for new versions") as span:
-            downloads, ipsws = get_missing_ipsws(os_name, os_version)
-            if len(downloads) == 0 or len(ipsws) == 0:
+            url_to_ipsws = get_missing_ipsws(os_name, os_version)
+            if len(url_to_ipsws) == 0:
                 return
-            span.set_data("new_archives", ipsws)
+            span.set_data("new_archives", url_to_ipsws.values())
 
         with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
             with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
-                for raw_url in downloads.values():
+                for url, ipsws in url_to_ipsws.items():
                     with transaction.start_child(
                         op="task", description="Download new IPSW archive"
                     ) as span:
-                        local_path = os.path.join(ipsw_dir, os.path.basename(raw_url.path))
-                        url = raw_url.geturl()
+                        local_path = os.path.join(ipsw_dir, os.path.basename(url))
                         span.set_data("url", url)
                         download_archive(url, local_path)
 
-                for ipsw in ipsws:
-                    with transaction.start_child(
-                        op="task", description="Process IPSW archive"
-                    ) as ipsw_span:
-                        for k, v in asdict(ipsw).items():
-                            ipsw_span.set_data(k, v)
-                        with ipsw_span.start_child(
-                            op="task", description="Extract symbols from archive"
-                        ) as span:
-                            with tempfile.TemporaryDirectory(
-                                prefix="_sentry_ipsw_extract_dir_"
-                            ) as extract_dir:
-                                extract_symbols_from_one_ipsw_archive(
-                                    os.path.join(ipsw_dir, os.path.basename(ipsw.url.path)),
-                                    extract_dir,
-                                    symcache_output,
-                                    ipsw.os_name,
-                                    ipsw.architecture,
-                                )
+                    for ipsw in ipsws:
+                        with transaction.start_child(
+                            op="task", description="Process IPSW archive"
+                        ) as ipsw_span:
+                            for k, v in asdict(ipsw).items():
+                                ipsw_span.set_data(k, v)
+                            with ipsw_span.start_child(
+                                op="task", description="Extract symbols from archive"
+                            ) as span:
+                                with tempfile.TemporaryDirectory(
+                                    prefix="_sentry_ipsw_extract_dir_"
+                                ) as extract_dir:
+                                    extract_symbols_from_one_ipsw_archive(
+                                        os.path.join(ipsw_dir, ipsw.archive_name),
+                                        extract_dir,
+                                        symcache_output,
+                                        ipsw.os_name,
+                                        ipsw.architecture,
+                                    )
 
             if upload:
                 with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
@@ -586,13 +595,12 @@ def regular_version_from_ota_version(ota_version: str) -> str:
     return ota_version
 
 
-def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
+def get_missing_ipsws(os_name: str, os_version: str) -> Dict[str, Set[IPSW]]:
     if os_name not in DEVICES_TO_CHECK:
         return []
 
     span = sentry_sdk.Hub.current.scope.span
-    build_to_ipsw: Dict[str, IPSW] = {}
-    downloads: Dict[str, str] = {}
+    url_to_ipsw: Dict[str, Set[IPSW]] = {}
     for device in DEVICES_TO_CHECK.get(os_name, []):
         with span.start_child(op="http.client", description="Fetch latest versions") as device_span:
             res = requests.get(
@@ -605,12 +613,13 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
             ipsw_info = res.json()[0]
             latest_os_version = ipsw_info["version"]
             latest_build_number = ipsw_info["buildid"]
+            ipsw_url = urlparse(ipsw_info["url"])
             ipsw = IPSW(
-                os_version=latest_os_version,
-                build_number=latest_build_number,
-                url=urlparse(ipsw_info["url"]),
-                os_name=os_name,
                 architecture=device.architecture,
+                archive_name=os.path.basename(ipsw_url.path),
+                build_number=latest_build_number,
+                os_name=os_name,
+                os_version=latest_os_version,
             )
             device_span.set_data("latest_os_version", latest_os_version)
             device_span.set_data("latest_build_nunber", latest_build_number)
@@ -626,20 +635,15 @@ def get_missing_ipsws(os_name: str, os_version: str) -> List[IPSW]:
                 else:
                     logging.info(f"Need to download and process {ipsw.bundle_id}")
 
-            download_key = f"{os_name}-{latest_os_version}-{latest_build_number}"
-            if download_key not in downloads:
-                downloads[download_key] = ipsw.url
+            url = ipsw_url.geturl()
+            if url not in url_to_ipsw:
+                url_to_ipsw[url] = set()
+            url_to_ipsw[url].add(ipsw)
 
-            build_key = f"{download_key}-{device.architecture}"
-            if build_key in build_to_ipsw:
-                continue
-
-            build_to_ipsw[build_key] = ipsw
-    return downloads, list(build_to_ipsw.values())
+    return url_to_ipsw
 
 
 def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
-    return False
     storage_path = f"gs://sentryio-system-symbols-0/{prefix}/bundles/{bundle_id}"
     result = subprocess.run(
         ["gsutil", "stat", storage_path],
