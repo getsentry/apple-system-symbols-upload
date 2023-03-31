@@ -2,6 +2,8 @@ name: import-system-symbols-from-ipsw
 inputs:
   gcp_service_key:
     required: true
+  sentry_auth_token:
+    required: true
   os_name:
     required: true
   os_version:
