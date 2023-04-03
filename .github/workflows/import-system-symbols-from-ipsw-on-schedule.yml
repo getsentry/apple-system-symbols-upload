@@ -17,7 +17,7 @@ jobs:
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
-        sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: tvos
         os_version: latest
         fetch_ota: false
@@ -29,7 +29,7 @@ jobs:
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
-        sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: ios
         os_version: latest
         fetch_ota: false
@@ -41,7 +41,7 @@ jobs:
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
-        sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: macos
         os_version: latest
         fetch_ota: false
@@ -53,7 +53,7 @@ jobs:
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
         gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
-        sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: watchos
         os_version: latest
         fetch_ota: false
