@@ -17,4 +17,4 @@ runs:
       env:
           SENTRY_DSN: ${{ inputs.sentry_dsn }}
       shell: bash
-      run: python3 import_system_symbols_from_simulators.py
+      run: sentry-cli monitors run 430ded42-54cb-427b-8fc7-433ac9ca8da5 -- python3 import_system_symbols_from_simulators.py
