@@ -4,13 +4,21 @@ on:
   schedule:
     - cron:  '0 4 * * *' # Check for new IPSWs every 4 hours
 
+  push:
+    branches:
+        - feat/import-symbols-macos-versions
+
 concurrency:
   group: import-system-symbols-from-simulators-on-schedule
   cancel-in-progress: true
 
 jobs:
   import-system-symbols-from-simulators:
-    runs-on: 'macos-12'
+    runs-on: ${{matrix.runs-on}}
+    strategy:
+      matrix:
+        runs-on: [macos-11, macos-12, macos-13]
+
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols from simulators
