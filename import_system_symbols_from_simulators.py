@@ -40,9 +40,6 @@ def main():
     ) as transaction:
         with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
             for runtime in find_simulator_runtimes(caches_path):
-                logging.info(
-                    f"Checking symbols for macOS {runtime.macos_version}, {runtime.os_name} {runtime.os_version} {runtime.arch}"
-                )
 
                 with transaction.start_child(
                     op="task", description="Process runtime"
