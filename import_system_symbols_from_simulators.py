@@ -40,6 +40,7 @@ def main():
     ) as transaction:
         with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
             for runtime in find_simulator_runtimes(caches_path):
+
                 with transaction.start_child(
                     op="task", description="Process runtime"
                 ) as runtime_span:
