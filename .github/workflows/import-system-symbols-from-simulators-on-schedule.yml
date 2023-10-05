@@ -4,6 +4,12 @@ on:
   schedule:
     - cron:  '0 4 * * *' # Check for new IPSWs every 4 hours
 
+  push:
+      branches:
+        - main
+  
+  pull_request:
+
 concurrency:
   group: import-system-symbols-from-simulators-on-schedule
   cancel-in-progress: true
