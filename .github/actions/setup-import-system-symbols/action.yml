@@ -42,4 +42,4 @@ runs:
     - name: Install sentry-cli
       shell: bash
       # Pin cli version so builds are reproducible
-      run: curl -sL https://sentry.io/get-cli/ | SENTRY_CLI_VERSION=2.16.1 sh
+      run: curl -sL https://sentry.io/get-cli/ | SENTRY_CLI_VERSION=2.21.2 sh
