@@ -2,6 +2,7 @@ import logging
 import os
 import plistlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -228,6 +229,22 @@ def download_archive(url: str, filepath: str) -> None:
         for chunk in r.iter_content(chunk_size=8192):
             f.write(chunk)
 
+def clear_dir_but(directory, keep_filename):
+    if not os.path.isdir(directory):
+        print(f"'{directory}' is not a directory.")
+        return
+
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        
+        if filename != keep_filename:
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Error deleting {file_path}. Reason: {e}")
 
 def extract_symbols_from_one_ipsw_archive(
     ipsw_archive_path: str,
@@ -239,6 +256,9 @@ def extract_symbols_from_one_ipsw_archive(
     span = sentry_sdk.Hub.current.scope.span
     with span.start_child(op="task", description="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
+
+    # get rid of unneeded ipsw after extraction
+    os.remove(ipsw_archive_path)
 
     if prefix == "macos":
         os_version, build_number = read_system_version_plist(extract_dir)
@@ -256,6 +276,7 @@ def extract_symbols_from_one_ipsw_archive(
         and parsed_version >= version.parse("16.0")
     ):
         system_restore_image_filename = read_build_manifest_plist(extract_dir)
+        clear_dir_but(extract_dir, system_restore_image_filename)
         with span.start_child(op="task", description="Process one dmg"):
             process_one_dmg(
                 extract_dir,
