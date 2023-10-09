@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import plistlib
@@ -246,6 +247,16 @@ def clear_dir_but(directory, keep_filename):
             except Exception as e:
                 print(f"Error deleting {file_path}. Reason: {e}")
 
+def compute_sha256(file_path):
+    sha256 = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        while True:
+            data = f.read(2**16)
+            if not data:
+                break
+            sha256.update(data)
+    return sha256.hexdigest()
+
 def extract_symbols_from_one_ipsw_archive(
     ipsw_archive_path: str,
     extract_dir: str,
@@ -257,6 +268,7 @@ def extract_symbols_from_one_ipsw_archive(
     with span.start_child(op="task", description="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
 
+    logging.info(f"sha256({ipsw_archive_path}): {compute_sha256(ipsw_archive_path)}")
     # get rid of unneeded ipsw after extraction
     os.remove(ipsw_archive_path)
 
@@ -338,6 +350,7 @@ def process_one_dmg(
         # reset path to the decrypted image
         restore_image_path = restore_image_path[:-4]
 
+    logging.info(f"sha256({restore_image_path}): {compute_sha256(restore_image_path)}")
     span = sentry_sdk.Hub.current.scope.span
 
     logging.info(f"Mounting {restore_image_path}")
