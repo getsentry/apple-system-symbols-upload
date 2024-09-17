@@ -43,3 +43,6 @@ runs:
       shell: bash
       # Pin cli version so builds are reproducible
       run: curl -sL https://sentry.io/get-cli/ | SENTRY_CLI_VERSION=2.21.2 sh
+    - name: Install ipsw
+      shell: bash
+      run: brew install ipsw
