@@ -290,6 +290,33 @@ def process_one_dmg(
     build_number,
 ):
     restore_image_path = os.path.join(extract_dir, system_restore_image_filename)
+
+    # Check if the restore image is aea-encrypted
+    if Path(restore_image_path).suffix == ".aea":
+        # retrieve the aea key from the image
+        aea_key = (
+            subprocess.check_output(["ipsw", "fw", "aea", "--key", restore_image_path])
+            .decode("utf-8")
+            .strip()
+        )
+
+        # use the key to decrypt the image
+        subprocess.check_call(
+            [
+                "ipsw",
+                "fw",
+                "aea",
+                "--key-val",
+                aea_key,
+                restore_image_path,
+                "--output",
+                Path(restore_image_path).parent,
+            ]
+        )
+
+        # reset path to the decrypted image
+        restore_image_path = restore_image_path[:-4]
+
     span = sentry_sdk.Hub.current.scope.span
 
     logging.info(f"Mounting {restore_image_path}")
