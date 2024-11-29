@@ -9,11 +9,16 @@ runs:
     - uses: actions/setup-python@v3
       with:
         python-version: '3.x'
+    - name: "Workaround GHA python@3.11 conflict"
+      shell: bash
+      run: |
+        # macos-13 breaks when brew install --cask google-cloud-sdk tries to link python@3.11 due to
+        # conflicting preinstall, see https://github.com/Homebrew/homebrew-core/issues/173191#issuecomment-2138608778
+        # we should be able to remove this when we remove macos-13 from the matrix
+        brew install --overwrite python@3.11
     - name: "Install Google Cloud SDK"
       shell: bash
       run: |
-        # workaround GHA python@3.11 conflict see https://github.com/Homebrew/homebrew-core/issues/173191#issuecomment-2138608778
-        brew install --overwrite python@3.11
         brew install --cask google-cloud-sdk
         echo "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/bin" >> $GITHUB_PATH
     - name: "Set up GCP access"
