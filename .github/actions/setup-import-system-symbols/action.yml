@@ -12,7 +12,7 @@ runs:
     - name: "Install Google Cloud SDK"
       shell: bash
       run: |
-        brew cleanup --prune-prefix python@3.11
+        brew cleanup --prune-prefix
         brew install --cask google-cloud-sdk
         echo "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/bin" >> $GITHUB_PATH
     - name: "Set up GCP access"
