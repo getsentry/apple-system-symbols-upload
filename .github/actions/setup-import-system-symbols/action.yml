@@ -2,6 +2,9 @@ name: import-system-symbols-from-ipsw
 
 runs:
   using: composite
+  permissions:
+    id-token: write
+    contents: read
   steps:
     - uses: actions/setup-python@v3
       with:
