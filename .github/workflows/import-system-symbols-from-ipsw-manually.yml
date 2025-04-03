@@ -36,7 +36,6 @@ jobs:
     - name: Import system symbols for ${{ github.event.inputs.os_name }}
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}s
         os_name: ${{ github.event.inputs.os_name }}
         os_version: ${{ github.event.inputs.os_version }}
