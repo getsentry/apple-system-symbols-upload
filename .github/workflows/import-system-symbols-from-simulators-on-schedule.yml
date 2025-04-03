@@ -17,6 +17,9 @@ concurrency:
 jobs:
   import-system-symbols-from-simulators:
     runs-on: ${{matrix.runs-on}}
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
