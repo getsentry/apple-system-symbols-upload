@@ -680,7 +680,7 @@ def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
     )
     if result.returncode == 0:
         return True
-    elif "not found" in result.stderr:
+    elif "not found" in result.stdout:
         return False
     # Fallback to raising an exception for other errors.
     result.check_returncode()
