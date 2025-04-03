@@ -17,6 +17,9 @@ concurrency:
 jobs:
   import-tvos-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for tvOS
@@ -30,6 +33,9 @@ jobs:
 
   import-ios-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for iOS
@@ -43,6 +49,9 @@ jobs:
 
   import-macos-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for macOS
@@ -56,6 +65,9 @@ jobs:
 
   import-watchos-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for watchOS
