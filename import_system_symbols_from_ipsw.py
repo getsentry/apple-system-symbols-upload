@@ -531,7 +531,7 @@ def upload_to_gcs(symcache_dir: str):
         return
     logging.info("Uploading symcache artifacts to production symbols bucket")
     subprocess.check_call(
-        ["gsutil", "-m", "cp", "-rn", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
+        ["gcloud", "storage", "cp", "--recursive", "--no-clobber", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
     )
 
 
@@ -673,14 +673,14 @@ def get_missing_ipsws(os_name: str, os_version: str) -> Dict[str, Set[IPSW]]:
 def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
     storage_path = f"gs://sentryio-system-symbols-0/{prefix}/bundles/{bundle_id}"
     result = subprocess.run(
-        ["gsutil", "stat", storage_path],
+        ["gcloud", "storage", "objects", "describe", storage_path],
         encoding="utf-8",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
     if result.returncode == 0:
         return True
-    elif "No URLs matched" in result.stdout:
+    elif "not found" in result.stdout:
         return False
     # Fallback to raising an exception for other errors.
     result.check_returncode()

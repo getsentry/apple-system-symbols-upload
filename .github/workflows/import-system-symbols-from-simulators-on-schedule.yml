@@ -17,6 +17,9 @@ concurrency:
 jobs:
   import-system-symbols-from-simulators:
     runs-on: ${{matrix.runs-on}}
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -27,5 +30,4 @@ jobs:
     - name: Import system symbols from simulators
       uses: ./.github/actions/import-system-symbols-from-simulators
       with:
-        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         sentry_dsn: ${{ secrets.SENTRY_dsn }}

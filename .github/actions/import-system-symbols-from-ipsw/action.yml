@@ -1,7 +1,5 @@
 name: import-system-symbols-from-ipsw
 inputs:
-  gcp_service_key:
-    required: true
   sentry_auth_token:
     required: true
   os_name:
@@ -19,8 +17,6 @@ runs:
   using: composite
   steps:
     - uses: ./.github/actions/setup-import-system-symbols
-      with:
-        gcp_service_key: ${{ inputs.gcp_service_key }}
     - name: Import symbols from IPSW
       env:
           SENTRY_DSN: ${{ inputs.sentry_dsn }}

@@ -17,12 +17,14 @@ concurrency:
 jobs:
   import-tvos-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for tvOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: tvos
         os_version: latest
@@ -31,12 +33,14 @@ jobs:
 
   import-ios-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for iOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: ios
         os_version: latest
@@ -45,12 +49,14 @@ jobs:
 
   import-macos-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for macOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: macos
         os_version: latest
@@ -59,12 +65,14 @@ jobs:
 
   import-watchos-system-symbols-from-ipsw:
     runs-on: 'macos-14'
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols for watchOS
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
-        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         sentry_dsn: ${{ secrets.SENTRY_DSN }}
         os_name: watchos
         os_version: latest
