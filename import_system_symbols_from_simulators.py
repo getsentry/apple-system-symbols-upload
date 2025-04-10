@@ -27,7 +27,7 @@ class SimulatorRuntime:
 
 _simulator_runtime_prefix = "com.apple.CoreSimulator.SimRuntime."
 _dyld_shared_cache_prefix = "dyld_sim_shared_cache_"
-_ignored_dyld_file_suffixes = (".map", ".atlas")
+_ignored_dyld_file_suffixes = (".map", ".atlas", ".dylddata")
 
 
 def _is_ignored_dsc_file(filename: str) -> bool:
