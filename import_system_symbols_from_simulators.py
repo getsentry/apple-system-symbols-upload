@@ -112,7 +112,7 @@ def find_simulator_runtimes(caches_path: str) -> List[SimulatorRuntime]:
 
 
 def extract_system_symbols(runtime: SimulatorRuntime, output_dir: str) -> None:
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     for filename in os.listdir(runtime.path):
         if _is_ignored_dsc_file(filename):
             continue
