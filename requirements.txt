@@ -1,4 +1,4 @@
 click
 packaging
 requests
-sentry-sdk<2.0.0
+sentry-sdk
