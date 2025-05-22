@@ -17,15 +17,17 @@ concurrency:
 jobs:
   import-system-symbols-from-simulators:
     runs-on: ${{matrix.runs-on}}
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [macos-12, macos-13, macos-14]
+        runs-on: [macos-13, macos-14, macos-15]
 
     steps:
     - uses: actions/checkout@v2
     - name: Import system symbols from simulators
       uses: ./.github/actions/import-system-symbols-from-simulators
       with:
-        gcp_service_key: ${{ secrets.GCP_SERVICE_KEY }}
         sentry_dsn: ${{ secrets.SENTRY_dsn }}

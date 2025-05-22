@@ -4,6 +4,7 @@ import os
 import plistlib
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -133,12 +134,11 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
         op="task", name=f"import symbols from OTA archive for {os_name}"
     ) as transaction:
-        with sentry_sdk.start_transaction(op="task", name="Checking OTAs") as transaction:
-            with transaction.start_child(op="task", description="Check for new versions") as span:
-                otas = get_missing_ota_only_releases(os_name, os_version)
-                if len(otas) == 0:
-                    return
-                span.set_data("new_archives", otas)
+        with transaction.start_child(op="task", description="Check for new versions") as span:
+            otas = get_missing_ota_only_releases(os_name, os_version)
+            if len(otas) == 0:
+                return
+            span.set_data("new_archives", otas)
 
         with tempfile.TemporaryDirectory(prefix="_sentry_symcache_output_") as symcache_output:
             with tempfile.TemporaryDirectory(prefix="_sentry_ota_archives_") as ota_dir:
@@ -147,7 +147,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
                         with transaction.start_child(
                             op="task", description="Process OTA archive"
                         ) as ota_span:
-                            for k, v in asdict(ota).items():
+                            for k, v in asdict(ota).items():  # type: ignore
                                 ota_span.set_data(k, v)
 
                             with ota_span.start_child(
@@ -160,7 +160,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
 
                             with ota_span.start_child(
                                 op="task", description="Extract symbols from archive"
-                            ) as span:
+                            ):
                                 extract_symbols_from_one_ota_archive(
                                     local_path,
                                     symcache_output,
@@ -202,11 +202,11 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
                         with transaction.start_child(
                             op="task", description="Process IPSW archive"
                         ) as ipsw_span:
-                            for k, v in asdict(ipsw).items():
+                            for k, v in asdict(ipsw).items():  # type: ignore
                                 ipsw_span.set_data(k, v)
                             with ipsw_span.start_child(
                                 op="task", description="Extract symbols from archive"
-                            ) as span:
+                            ):
                                 with tempfile.TemporaryDirectory(
                                     prefix="_sentry_ipsw_extract_dir_"
                                 ) as extract_dir:
@@ -264,7 +264,7 @@ def extract_symbols_from_one_ipsw_archive(
     prefix: str,
     architecture: str,
 ) -> None:
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     with span.start_child(op="task", description="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
 
@@ -322,10 +322,10 @@ def process_one_dmg(
     os_version,
     build_number,
 ):
-    restore_image_path = os.path.join(extract_dir, system_restore_image_filename)
+    restore_image_path = Path(extract_dir) / Path(system_restore_image_filename)
 
     # Check if the restore image is aea-encrypted
-    if Path(restore_image_path).suffix == ".aea":
+    if restore_image_path.suffix == ".aea":
         # retrieve the aea key from the image
         aea_key = (
             subprocess.check_output(["ipsw", "fw", "aea", "--key", restore_image_path])
@@ -343,21 +343,21 @@ def process_one_dmg(
                 aea_key,
                 restore_image_path,
                 "--output",
-                Path(restore_image_path).parent,
+                restore_image_path.parent,
             ]
         )
 
         # reset path to the decrypted image
-        restore_image_path = restore_image_path[:-4]
+        restore_image_path = restore_image_path.with_suffix("")
 
     logging.info(f"sha256({restore_image_path}): {compute_sha256(restore_image_path)}")
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
 
     logging.info(f"Mounting {restore_image_path}")
     with span.start_child(op="task", description="Mount archive"):
         volume_path = (
             subprocess.check_output(
-                [f"hdiutil attach {restore_image_path} | grep /Volumes/ | cut -f 3"],
+                [f"hdiutil attach {shlex.quote(str(restore_image_path))} | grep /Volumes/ | cut -f 3"],
                 shell=True,
             )
             .decode("utf-8")
@@ -411,7 +411,7 @@ def extract_symbols_from_one_ota_archive(
     prefix: str,
     bundle_id: str,
 ) -> None:
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     with tempfile.TemporaryDirectory(prefix="_sentry_ota_extract_dir_") as level1_extract_dir:
         with span.start_child(op="task", description="Extract OTA archive"):
             extract_zip_archive(ota_archive_path, level1_extract_dir)
@@ -475,7 +475,7 @@ def unpack_ota(payload_path: str, output_path: str) -> None:
 def process_shared_cache_file(
     filename: str, shared_cache_dir: str, prefix: str, bundle_id: str, symcache_output_path: str
 ) -> None:
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     with tempfile.TemporaryDirectory(prefix="_sentry_dylib_cache_output") as output_path:
         with span.start_child(
             op="task", description="Process shared cache file"
@@ -496,7 +496,7 @@ def process_shared_cache_file(
 def symsort_utilities(
     volume_path: str, prefix: str, bundle_id: str, symcache_output_path: str
 ) -> None:
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     other_dylib_paths = [
         os.path.join(volume_path, "usr", "lib"),
         os.path.join(volume_path, "System", "Library", "AccessibilityBundles"),
@@ -565,7 +565,7 @@ def upload_to_gcs(symcache_dir: str):
         return
     logging.info("Uploading symcache artifacts to production symbols bucket")
     subprocess.check_call(
-        ["gsutil", "-m", "cp", "-rn", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
+        ["gcloud", "storage", "cp", "--recursive", "--no-clobber", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
     )
 
 
@@ -576,7 +576,7 @@ def parse_date(date: str) -> datetime:
 def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
     versions = {}
 
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     for device in DEVICES_TO_CHECK.get(os_name, []):
         with span.start_child(op="http.client", description="Fetch all versions"):
             logging.info(f"Finding OTA releases for {device.identifier}")
@@ -658,9 +658,9 @@ def regular_version_from_ota_version(ota_version: str) -> str:
 
 def get_missing_ipsws(os_name: str, os_version: str) -> Dict[str, Set[IPSW]]:
     if os_name not in DEVICES_TO_CHECK:
-        return []
+        return {}
 
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     url_to_ipsw: Dict[str, Set[IPSW]] = {}
     for device in DEVICES_TO_CHECK.get(os_name, []):
         with span.start_child(op="http.client", description="Fetch latest versions") as device_span:
@@ -707,14 +707,14 @@ def get_missing_ipsws(os_name: str, os_version: str) -> Dict[str, Set[IPSW]]:
 def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
     storage_path = f"gs://sentryio-system-symbols-0/{prefix}/bundles/{bundle_id}"
     result = subprocess.run(
-        ["gsutil", "stat", storage_path],
+        ["gcloud", "storage", "objects", "describe", storage_path],
         encoding="utf-8",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
     if result.returncode == 0:
         return True
-    elif "No URLs matched" in result.stdout:
+    elif "not found" in result.stdout:
         return False
     # Fallback to raising an exception for other errors.
     result.check_returncode()

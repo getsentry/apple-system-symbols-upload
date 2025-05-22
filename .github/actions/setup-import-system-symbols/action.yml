@@ -1,7 +1,4 @@
 name: import-system-symbols-from-ipsw
-inputs:
-  gcp_service_key:
-    required: true
 
 runs:
   using: composite
@@ -9,21 +6,23 @@ runs:
     - uses: actions/setup-python@v3
       with:
         python-version: '3.x'
+    - name: "Workaround GHA python@3.11 conflict"
+      shell: bash
+      run: |
+        # macos-13 breaks when brew install --cask google-cloud-sdk tries to link python@3.11 due to
+        # conflicting preinstall, see https://github.com/Homebrew/homebrew-core/issues/173191#issuecomment-2138608778
+        # we should be able to remove this when we remove macos-13 from the matrix
+        brew install --overwrite python@3.11
     - name: "Install Google Cloud SDK"
       shell: bash
       run: |
         brew install --cask google-cloud-sdk
         echo "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/bin" >> $GITHUB_PATH
     - name: "Set up GCP access"
-      shell: bash
-      env:
-        GCP_SERVICE_KEY: ${{ inputs.gcp_service_key }}
-      run: |
-        set -eou pipefail
-        mkdir -p ~/.gcp
-        key_path="$HOME/.gcp/key.json"
-        echo $GCP_SERVICE_KEY > "$key_path"
-        gcloud auth activate-service-account --key-file="$key_path"
+      uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935
+      with:
+        workload_identity_provider: projects/868781662168/locations/global/workloadIdentityPools/prod-github/providers/github-oidc-pool
+        service_account: gha-apple-system-symbols@sac-prod-sa.iam.gserviceaccount.com
     - name: "Install dependencies"
       shell: bash
       run: brew install p7zip lzip keith/formulae/dyld-shared-cache-extractor

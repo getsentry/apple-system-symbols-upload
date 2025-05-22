@@ -27,6 +27,14 @@ class SimulatorRuntime:
 
 _simulator_runtime_prefix = "com.apple.CoreSimulator.SimRuntime."
 _dyld_shared_cache_prefix = "dyld_sim_shared_cache_"
+_ignored_dyld_file_suffixes = (".map", ".atlas", ".dylddata")
+
+
+def _is_ignored_dsc_file(filename: str) -> bool:
+    return (
+        not filename.startswith(_dyld_shared_cache_prefix)
+        or os.path.splitext(filename)[1] in _ignored_dyld_file_suffixes
+    )
 
 
 def main():
@@ -40,16 +48,14 @@ def main():
     ) as transaction:
         with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
             for runtime in find_simulator_runtimes(caches_path):
-
                 with transaction.start_child(
                     op="task", description="Process runtime"
                 ) as runtime_span:
                     runtime_span.set_data("runtime", runtime)
                     for filename in os.listdir(runtime.path):
-                        if not filename.startswith(_dyld_shared_cache_prefix):
+                        if _is_ignored_dsc_file(filename):
                             continue
-                        if os.path.splitext(filename)[1] == ".map":
-                            continue
+
                         with runtime_span.start_child(
                             op="task", description="Process file"
                         ) as file_span:
@@ -106,12 +112,11 @@ def find_simulator_runtimes(caches_path: str) -> List[SimulatorRuntime]:
 
 
 def extract_system_symbols(runtime: SimulatorRuntime, output_dir: str) -> None:
-    span = sentry_sdk.Hub.current.scope.span
+    span = sentry_sdk.get_current_span()
     for filename in os.listdir(runtime.path):
-        if not filename.startswith(_dyld_shared_cache_prefix):
+        if _is_ignored_dsc_file(filename):
             continue
-        if os.path.splitext(filename)[1] == ".map":
-            continue
+
         with span.start_child(
             op="task", description="Extract symbols from runtime file"
         ) as file_span:
