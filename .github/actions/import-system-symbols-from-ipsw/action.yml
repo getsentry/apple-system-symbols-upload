@@ -20,13 +20,19 @@ runs:
     - name: Import symbols from IPSW
       env:
           SENTRY_DSN: ${{ inputs.sentry_dsn }}
+          CRON_MONITOR_SLUG: ${{ inputs.cron_monitor_slug }}
+          OS_NAME: ${{ inputs.os_name }}
+          OS_VERSION: ${{ inputs.os_version }}
       shell: bash
       if: ${{ inputs.fetch_ipsw }}
-      run: sentry-cli monitors run ${{ inputs.cron_monitor_slug }} -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ipsw
+      run: sentry-cli monitors run "$CRON_MONITOR_SLUG" -- python3 import_system_symbols_from_ipsw.py --os-name "$OS_NAME" --os-version "$OS_VERSION" --type=ipsw
 
     - name: Import symbols from OTA
       env:
           SENTRY_DSN: ${{ inputs.sentry_dsn }}
+          CRON_MONITOR_SLUG: ${{ inputs.cron_monitor_slug }}
+          OS_NAME: ${{ inputs.os_name }}
+          OS_VERSION: ${{ inputs.os_version }}
       shell: bash
       if: ${{ inputs.fetch_ota }}
-      run: sentry-cli monitors run ${{ inputs.cron_monitor_slug }} -- python3 import_system_symbols_from_ipsw.py --os-name ${{ inputs.os_name }} --os-version ${{ inputs.os_version }} --type=ota
+      run: sentry-cli monitors run "$CRON_MONITOR_SLUG" -- python3 import_system_symbols_from_ipsw.py --os-name "$OS_NAME" --os-version "$OS_VERSION" --type=ota
