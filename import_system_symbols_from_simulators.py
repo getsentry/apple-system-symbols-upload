@@ -37,17 +37,31 @@ def _is_ignored_dsc_file(filename: str) -> bool:
     )
 
 
+def retrieve_caches_path() -> str:
+    root_caches_path = "/Library/Developer/CoreSimulator/Caches/dyld"
+    user_caches_path =  os.path.expanduser(f"~{root_caches_path}")
+
+    # starting with Xcode 16 simulator image caches are stored in the root `Library` folder
+    if not os.path.isdir(root_caches_path):
+        # up to Xcode 16 simulator image caches were stored per user
+        if not os.path.isdir(user_caches_path):
+            sys.exit(f"Neither {root_caches_path} nor {user_caches_path} do exist")
+        else:
+            caches_path = user_caches_path
+    else:
+        caches_path = root_caches_path
+
+    return caches_path
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="[sentry] %(message)s")
-    caches_path = os.path.expanduser("~/Library/Developer/CoreSimulator/Caches/dyld")
-    if not os.path.isdir(caches_path):
-        sys.exit(f"{caches_path} does not exist")
 
     with sentry_sdk.start_transaction(
         op="task", name="import symbols from simulators"
     ) as transaction:
         with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
-            for runtime in find_simulator_runtimes(caches_path):
+            for runtime in find_simulator_runtimes(retrieve_caches_path()):
                 with transaction.start_child(
                     op="task", description="Process runtime"
                 ) as runtime_span:
