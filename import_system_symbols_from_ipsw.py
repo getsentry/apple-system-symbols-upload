@@ -132,7 +132,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
         op="task", name=f"import symbols from OTA archive for {os_name}"
     ) as transaction:
-        with transaction.start_child(op="task", description="Check for new versions") as span:
+        with transaction.start_child(op="task", name="Check for new versions") as span:
             otas = get_missing_ota_only_releases(os_name, os_version)
             if len(otas) == 0:
                 return
@@ -143,13 +143,13 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
                 for ota in otas:
                     try:
                         with transaction.start_child(
-                            op="task", description="Process OTA archive"
+                            op="task", name="Process OTA archive"
                         ) as ota_span:
                             for k, v in asdict(ota).items():  # type: ignore
                                 ota_span.set_data(k, v)
 
                             with ota_span.start_child(
-                                op="task", description="Download new version"
+                                op="task", name="Download new version"
                             ) as span:
                                 local_path = os.path.join(ota_dir, os.path.basename(ota.url.path))
                                 url = ota.url.geturl()
@@ -157,7 +157,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
                                 download_archive(url, local_path)
 
                             with ota_span.start_child(
-                                op="task", description="Extract symbols from archive"
+                                op="task", name="Extract symbols from archive"
                             ):
                                 extract_symbols_from_one_ota_archive(
                                     local_path,
@@ -172,7 +172,7 @@ def main_download_otas(os_name: str, os_version: str, upload: bool = True):
                             )
 
             if upload:
-                with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
+                with transaction.start_child(op="task", name="Upload symbols to GCS bucket"):
                     upload_to_gcs(symcache_output)
 
 
@@ -180,7 +180,7 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
     with sentry_sdk.start_transaction(
         op="task", name=f"import symbols from IPSW archive for {os_name}"
     ) as transaction:
-        with transaction.start_child(op="task", description="Check for new versions") as span:
+        with transaction.start_child(op="task", name="Check for new versions") as span:
             url_to_ipsws = get_missing_ipsws(os_name, os_version)
             if len(url_to_ipsws) == 0:
                 return
@@ -190,7 +190,7 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
             with tempfile.TemporaryDirectory(prefix="_sentry_ipsw_archives_") as ipsw_dir:
                 for url, ipsws in url_to_ipsws.items():
                     with transaction.start_child(
-                        op="task", description="Download new IPSW archive"
+                        op="task", name="Download new IPSW archive"
                     ) as span:
                         local_path = os.path.join(ipsw_dir, os.path.basename(url))
                         span.set_data("url", url)
@@ -198,12 +198,12 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
 
                     for ipsw in ipsws:
                         with transaction.start_child(
-                            op="task", description="Process IPSW archive"
+                            op="task", name="Process IPSW archive"
                         ) as ipsw_span:
                             for k, v in asdict(ipsw).items():  # type: ignore
                                 ipsw_span.set_data(k, v)
                             with ipsw_span.start_child(
-                                op="task", description="Extract symbols from archive"
+                                op="task", name="Extract symbols from archive"
                             ):
                                 with tempfile.TemporaryDirectory(
                                     prefix="_sentry_ipsw_extract_dir_"
@@ -217,7 +217,7 @@ def main_download_ipsws(os_name: str, os_version: str, upload: bool = True):
                                     )
 
             if upload:
-                with transaction.start_child(op="task", description="Upload symbols to GCS bucket"):
+                with transaction.start_child(op="task", name="Upload symbols to GCS bucket"):
                     upload_to_gcs(symcache_output)
 
 
@@ -237,7 +237,7 @@ def extract_symbols_from_one_ipsw_archive(
     architecture: str,
 ) -> None:
     span = sentry_sdk.get_current_span()
-    with span.start_child(op="task", description="Extract IPSW archive"):
+    with span.start_child(op="task", name="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
 
     if prefix == "macos":
@@ -256,7 +256,7 @@ def extract_symbols_from_one_ipsw_archive(
         and parsed_version >= version.parse("16.0")
     ):
         system_restore_image_filename = read_build_manifest_plist(extract_dir)
-        with span.start_child(op="task", description="Process one dmg"):
+        with span.start_child(op="task", name="Process one dmg"):
             process_one_dmg(
                 extract_dir,
                 symcache_output_path,
@@ -268,7 +268,7 @@ def extract_symbols_from_one_ipsw_archive(
             )
     else:
         for system_restore_image_filename in read_restore_plist(extract_dir):
-            with span.start_child(op="task", description="Process one dmg"):
+            with span.start_child(op="task", name="Process one dmg"):
                 process_one_dmg(
                     extract_dir,
                     symcache_output_path,
@@ -320,7 +320,7 @@ def process_one_dmg(
     span = sentry_sdk.get_current_span()
 
     logging.info(f"Mounting {restore_image_path}")
-    with span.start_child(op="task", description="Mount archive"):
+    with span.start_child(op="task", name="Mount archive"):
         volume_path = (
             subprocess.check_output(
                 [f"hdiutil attach {shlex.quote(str(restore_image_path))} | grep /Volumes/ | cut -f 3"],
@@ -363,7 +363,7 @@ def process_one_dmg(
         symsort_utilities(volume_path, prefix, bundle_id, symcache_output_path)
     finally:
         logging.info(f"Unmounting {restore_image_path}")
-        with span.start_child(op="task", description="Unmount archive"):
+        with span.start_child(op="task", name="Unmount archive"):
             subprocess.check_call(
                 ["hdiutil", "detach", volume_path],
                 stdout=subprocess.DEVNULL,
@@ -379,7 +379,7 @@ def extract_symbols_from_one_ota_archive(
 ) -> None:
     span = sentry_sdk.get_current_span()
     with tempfile.TemporaryDirectory(prefix="_sentry_ota_extract_dir_") as level1_extract_dir:
-        with span.start_child(op="task", description="Extract OTA archive"):
+        with span.start_child(op="task", name="Extract OTA archive"):
             extract_zip_archive(ota_archive_path, level1_extract_dir)
 
         payloadv2 = os.path.join(level1_extract_dir, "AssetData", "payloadv2")
@@ -387,7 +387,7 @@ def extract_symbols_from_one_ota_archive(
         with tempfile.TemporaryDirectory(
             prefix="_sentry_final_ota_extract_dir_"
         ) as level2_extract_dir:
-            with span.start_child(op="task", description="Unpack OTA from payload"):
+            with span.start_child(op="task", name="Unpack OTA from payload"):
                 unpack_ota(payloadv2, level2_extract_dir)
 
             shared_cache_dir = os.path.join(
@@ -444,17 +444,17 @@ def process_shared_cache_file(
     span = sentry_sdk.get_current_span()
     with tempfile.TemporaryDirectory(prefix="_sentry_dylib_cache_output") as output_path:
         with span.start_child(
-            op="task", description="Process shared cache file"
+            op="task", name="Process shared cache file"
         ) as shared_cache_span:
             shared_cache_span.set_data("shared_cache_file", filename)
             cache_path = os.path.join(shared_cache_dir, filename)
             logging.info(f"Extracting {cache_path} to {output_path}")
             with shared_cache_span.start_child(
-                op="task", description="Run dyld-shared-cache-extractor"
+                op="task", name="Run dyld-shared-cache-extractor"
             ):
                 subprocess.check_call(["dyld-shared-cache-extractor", cache_path, output_path])
             with shared_cache_span.start_child(
-                op="task", description="Run symsorter for shared cache directory"
+                op="task", name="Run symsorter for shared cache directory"
             ):
                 symsorter(symcache_output_path, prefix, bundle_id, output_path)
 
@@ -469,7 +469,7 @@ def symsort_utilities(
     ]
     for dylib_path in other_dylib_paths:
         with span.start_child(
-            op="task", description="Run symsorter for other dylib paths"
+            op="task", name="Run symsorter for other dylib paths"
         ) as other_path_span:
             other_path_span.set_data("dylib_path", dylib_path)
             symsorter(symcache_output_path, prefix, bundle_id, dylib_path)
@@ -544,7 +544,7 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
 
     span = sentry_sdk.get_current_span()
     for device in DEVICES_TO_CHECK.get(os_name, []):
-        with span.start_child(op="http.client", description="Fetch all versions"):
+        with span.start_child(op="http.client", name="Fetch all versions"):
             logging.info(f"Finding OTA releases for {device.identifier}")
             res = requests.get(f"https://api.ipsw.me/v4/device/{device.identifier}?type=ota")
             res.raise_for_status()
@@ -577,7 +577,7 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
                 key = normal_version, firmware["buildid"]
                 versions.setdefault(key, {})[firmware["url"]] = firmware
 
-        with span.start_child(op="http.client", description="Fetch all IPSWs for diffing"):
+        with span.start_child(op="http.client", name="Fetch all IPSWs for diffing"):
             logging.info(f"Finding IPSW releases for {device.identifier} for diffing")
             res = requests.get(f"https://api.ipsw.me/v4/device/{device.identifier}?type=ipsw")
             res.raise_for_status()
@@ -600,7 +600,7 @@ def get_missing_ota_only_releases(os_name: str, version: str) -> List[OTA]:
 
             logging.info(f"Check if we have {ota.bundle_id} on GCS")
             with span.start_child(
-                op="task", description="Check if OTA version has symbols already"
+                op="task", name="Check if OTA version has symbols already"
             ) as symbols_span:
                 if has_symbols_in_cloud_storage(ota.os_name, ota.bundle_id):
                     symbols_span.set_data("has_symbols_in_cloud_storage", True)
@@ -629,7 +629,7 @@ def get_missing_ipsws(os_name: str, os_version: str) -> Dict[str, Set[IPSW]]:
     span = sentry_sdk.get_current_span()
     url_to_ipsw: Dict[str, Set[IPSW]] = {}
     for device in DEVICES_TO_CHECK.get(os_name, []):
-        with span.start_child(op="http.client", description="Fetch latest versions") as device_span:
+        with span.start_child(op="http.client", name="Fetch latest versions") as device_span:
             res = requests.get(
                 f"https://api.ipsw.me/v2.1/{device.identifier}/{os_version}/info.json"
             )
@@ -653,7 +653,7 @@ def get_missing_ipsws(os_name: str, os_version: str) -> Dict[str, Set[IPSW]]:
 
             logging.info(f"Check if we have {ipsw.bundle_id} on GCS")
             with device_span.start_child(
-                op="task", description="Check if version has symbols already"
+                op="task", name="Check if version has symbols already"
             ) as symbols_span:
                 if has_symbols_in_cloud_storage(ipsw.os_name, ipsw.bundle_id):
                     symbols_span.set_data("has_symbols_in_cloud_storage", True)

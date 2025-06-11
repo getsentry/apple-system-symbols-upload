@@ -63,7 +63,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix="_sentry_dyld_shared_cache_") as output_dir:
             for runtime in find_simulator_runtimes(retrieve_caches_path()):
                 with transaction.start_child(
-                    op="task", description="Process runtime"
+                    op="task", name="Process runtime"
                 ) as runtime_span:
                     runtime_span.set_data("runtime", runtime)
                     for filename in os.listdir(runtime.path):
@@ -71,13 +71,13 @@ def main():
                             continue
 
                         with runtime_span.start_child(
-                            op="task", description="Process file"
+                            op="task", name="Process file"
                         ) as file_span:
                             runtime.arch = filename.split(_dyld_shared_cache_prefix)[1]
                             file_span.set_data("file", filename)
                             file_span.set_data("architecture", runtime.arch)
                             with file_span.start_child(
-                                op="task", description="Check if version has symbols already"
+                                op="task", name="Check if version has symbols already"
                             ):
                                 if has_symbols_in_cloud_storage(runtime.os_name, runtime.bundle_id):
                                     logging.info(
@@ -87,9 +87,9 @@ def main():
                             logging.info(
                                 f"Extracting symbols for macOS {runtime.macos_version}, {runtime.os_name} {runtime.os_version} {runtime.arch}"
                             )
-                            with file_span.start_child(op="task", description="Extract symbols"):
+                            with file_span.start_child(op="task", name="Extract symbols"):
                                 extract_system_symbols(runtime, output_dir)
-            with transaction.start_child(op="task", description="Upload results to GCS"):
+            with transaction.start_child(op="task", name="Upload results to GCS"):
                 upload_to_gcs(output_dir)
 
 
@@ -132,16 +132,16 @@ def extract_system_symbols(runtime: SimulatorRuntime, output_dir: str) -> None:
             continue
 
         with span.start_child(
-            op="task", description="Extract symbols from runtime file"
+            op="task", name="Extract symbols from runtime file"
         ) as file_span:
             file_span.set_data("runtime_file", filename)
             with tempfile.TemporaryDirectory(prefix="_sentry_dyld_output") as dsc_out_dir:
                 full_path = os.path.join(runtime.path, filename)
                 with file_span.start_child(
-                    op="task", description="Run dyld-shared-cache-extractor"
+                    op="task", name="Run dyld-shared-cache-extractor"
                 ):
                     subprocess.check_call(["dyld-shared-cache-extractor", full_path, dsc_out_dir])
-                with file_span.start_child(op="task", description="Run symsorter"):
+                with file_span.start_child(op="task", name="Run symsorter"):
                     symsorter(output_dir, runtime.os_name, runtime.bundle_id, dsc_out_dir)
 
 
