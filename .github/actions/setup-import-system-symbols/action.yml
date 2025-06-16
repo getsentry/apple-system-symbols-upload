@@ -3,29 +3,21 @@ name: import-system-symbols-from-ipsw
 runs:
   using: composite
   steps:
-    - uses: actions/setup-python@v3
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.x'
-    - name: "Workaround GHA python@3.11 conflict"
-      shell: bash
-      run: |
-        # macos-13 breaks when brew install --cask google-cloud-sdk tries to link python@3.11 due to
-        # conflicting preinstall, see https://github.com/Homebrew/homebrew-core/issues/173191#issuecomment-2138608778
-        # we should be able to remove this when we remove macos-13 from the matrix
-        brew install --overwrite python@3.11
-    - name: "Install Google Cloud SDK"
-      shell: bash
-      run: |
-        brew install --cask google-cloud-sdk
-        echo "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/bin" >> $GITHUB_PATH
     - name: "Set up GCP access"
       uses: google-github-actions/auth@71f986410dfbc7added4569d411d040a91dc6935
       with:
         workload_identity_provider: projects/868781662168/locations/global/workloadIdentityPools/prod-github/providers/github-oidc-pool
         service_account: gha-apple-system-symbols@sac-prod-sa.iam.gserviceaccount.com
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v2'
+      with:
+        version: '>= 363.0.0'
     - name: "Install dependencies"
       shell: bash
-      run: brew install p7zip lzip keith/formulae/dyld-shared-cache-extractor
+      run: brew install lzip keith/formulae/dyld-shared-cache-extractor
     - name: "Compile ios-utils"
       shell: bash
       run: cd ios-utils && make

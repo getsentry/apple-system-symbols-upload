@@ -682,6 +682,7 @@ def has_symbols_in_cloud_storage(prefix: str, bundle_id: str) -> bool:
         return True
     elif "not found" in result.stdout:
         return False
+    logging.error(f"`has_symbols_in_cloud_storage()` failed with an unexpected error:\n{result.stdout}")
     # Fallback to raising an exception for other errors.
     result.check_returncode()
     return False
