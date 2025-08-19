@@ -2,7 +2,6 @@ import logging
 import os
 import plistlib
 import re
-import shlex
 import subprocess
 import sys
 import tempfile
@@ -323,16 +322,20 @@ def process_one_dmg(
 
     logging.info(f"Mounting {restore_image_path}")
     with span.start_child(op="task", name="Mount archive"):
-        volume_path = (
-            subprocess.check_output(
-                [f"hdiutil attach {shlex.quote(str(restore_image_path))} | grep /Volumes/ | cut -f 3"],
-                shell=True,
-            )
-            .decode("utf-8")
-            .strip()
-        )
+        hdiutil_output = subprocess.check_output(
+            ["hdiutil", "attach", str(restore_image_path)]
+        ).decode("utf-8")
+        
+        # Find volume path using regex - it's at the end of the output
+        match = re.search(r'/Volumes/[^\s\n]*', hdiutil_output)
+        if not match:
+            raise RuntimeError(f"Failed to find volume path in hdiutil output: {hdiutil_output}")
+
+        volume_path = match.group(0)
 
     try:
+        logging.info(f"Mounted volume path: '{volume_path}'")
+
         bundle_id = f"{os_version}_{build_number}_{architecture}"
         span.set_data("bundle_id", bundle_id)
         if prefix == "macos":
