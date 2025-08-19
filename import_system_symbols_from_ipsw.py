@@ -2,7 +2,6 @@ import logging
 import os
 import plistlib
 import re
-import shlex
 import subprocess
 import sys
 import tempfile
@@ -239,6 +238,8 @@ def extract_symbols_from_one_ipsw_archive(
     span = sentry_sdk.get_current_span()
     with span.start_child(op="task", name="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
+        logging.info(f"Delete downloaded IPSW after extraction: {ipsw_archive_path}")
+        os.unlink(ipsw_archive_path)
 
     if prefix == "macos":
         os_version, build_number = read_system_version_plist(extract_dir)
@@ -321,16 +322,20 @@ def process_one_dmg(
 
     logging.info(f"Mounting {restore_image_path}")
     with span.start_child(op="task", name="Mount archive"):
-        volume_path = (
-            subprocess.check_output(
-                [f"hdiutil attach {shlex.quote(str(restore_image_path))} | grep /Volumes/ | cut -f 3"],
-                shell=True,
-            )
-            .decode("utf-8")
-            .strip()
-        )
+        hdiutil_output = subprocess.check_output(
+            ["hdiutil", "attach", str(restore_image_path)]
+        ).decode("utf-8")
+        
+        # Find volume path using regex - it's at the end of the output
+        match = re.search(r'/Volumes/[^\s\n]*', hdiutil_output)
+        if not match:
+            raise RuntimeError(f"Failed to find volume path in hdiutil output: {hdiutil_output}")
+
+        volume_path = match.group(0)
 
     try:
+        logging.info(f"Mounted volume path: '{volume_path}'")
+
         bundle_id = f"{os_version}_{build_number}_{architecture}"
         span.set_data("bundle_id", bundle_id)
         if prefix == "macos":
@@ -530,9 +535,17 @@ def upload_to_gcs(symcache_dir: str):
         logging.info(f"Directory {symcache_dir} is empty, nothing to do.")
         return
     logging.info("Uploading symcache artifacts to production symbols bucket")
-    subprocess.check_call(
-        ["gcloud", "storage", "cp", "--recursive", "--no-clobber", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
+    result = subprocess.run(
+        ["gcloud", "storage", "cp", "--recursive", "--no-clobber", ".", "gs://sentryio-system-symbols-0"], 
+        cwd=symcache_dir,
+        capture_output=True,
+        text=True
     )
+    if result.returncode != 0:
+        logging.error(f"gcloud upload failed with return code {result.returncode}")
+        logging.error(f"stdout: {result.stdout}")
+        logging.error(f"stderr: {result.stderr}")
+        result.check_returncode()
 
 
 def parse_date(date: str) -> datetime:
