@@ -239,6 +239,8 @@ def extract_symbols_from_one_ipsw_archive(
     span = sentry_sdk.get_current_span()
     with span.start_child(op="task", name="Extract IPSW archive"):
         extract_zip_archive(ipsw_archive_path, extract_dir)
+        logging.info(f"Delete downloaded IPSW after extraction: {ipsw_archive_path}")
+        os.unlink(ipsw_archive_path)
 
     if prefix == "macos":
         os_version, build_number = read_system_version_plist(extract_dir)
