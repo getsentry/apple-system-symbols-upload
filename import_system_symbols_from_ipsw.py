@@ -535,9 +535,17 @@ def upload_to_gcs(symcache_dir: str):
         logging.info(f"Directory {symcache_dir} is empty, nothing to do.")
         return
     logging.info("Uploading symcache artifacts to production symbols bucket")
-    subprocess.check_call(
-        ["gcloud", "storage", "cp", "--recursive", "--no-clobber", ".", "gs://sentryio-system-symbols-0"], cwd=symcache_dir
+    result = subprocess.run(
+        ["gcloud", "storage", "cp", "--recursive", "--no-clobber", ".", "gs://sentryio-system-symbols-0"], 
+        cwd=symcache_dir,
+        capture_output=True,
+        text=True
     )
+    if result.returncode != 0:
+        logging.error(f"gcloud upload failed with return code {result.returncode}")
+        logging.error(f"stdout: {result.stdout}")
+        logging.error(f"stderr: {result.stderr}")
+        result.check_returncode()
 
 
 def parse_date(date: str) -> datetime:
