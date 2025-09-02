@@ -15,6 +15,13 @@ runs:
       uses: 'google-github-actions/setup-gcloud@v2'
       with:
         version: '>= 363.0.0'
+    - name: Workaround for pinned CMake
+      shell: bash
+      run: |
+        set -eou pipefail
+        brew uninstall cmake
+        brew untap local/pinned
+        brew install cmake
     - name: "Install dependencies"
       shell: bash
       run: brew install lzip keith/formulae/dyld-shared-cache-extractor
