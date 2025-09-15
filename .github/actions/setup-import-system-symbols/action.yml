@@ -20,7 +20,7 @@ runs:
       run: |
         set -eou pipefail
         brew uninstall cmake
-        brew untap local/pinned
+        brew untap local/pinned || true
         brew install cmake
     - name: "Install dependencies"
       shell: bash
