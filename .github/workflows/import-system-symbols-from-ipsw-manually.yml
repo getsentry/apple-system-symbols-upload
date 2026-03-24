@@ -35,7 +35,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
     - name: Import system symbols for ${{ github.event.inputs.os_name }}
       uses: ./.github/actions/import-system-symbols-from-ipsw
       with:
